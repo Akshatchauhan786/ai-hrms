@@ -13,6 +13,8 @@ const attendanceRoutes = require("./routes/attendanceRoutes");
 const leaveTypeRoutes = require("./routes/leaveTypeRoutes");
 const leaveBalanceRoutes = require("./routes/leaveBalanceRoutes");
 const leaveRequestRoutes = require("./routes/leaveRequestRoutes");
+const salaryRoutes = require("./routes/salaryRoutes");
+const payrollRoutes = require("./routes/payrollRoutes");
 
 console.log({
   DB_HOST: process.env.DB_HOST,
@@ -75,6 +77,8 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leave-types", leaveTypeRoutes);
 app.use("/api/leave-balances", leaveBalanceRoutes);
 app.use("/api/leave-requests", leaveRequestRoutes);
+app.use("/api/salaries", salaryRoutes);
+app.use("/api/payroll", payrollRoutes);
 
 const PORT = process.env.PORT || 5000;
 
