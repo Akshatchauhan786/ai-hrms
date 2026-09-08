@@ -10,6 +10,9 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const departmentRoutes = require("./routes/departmentRoutes");
 const designationRoutes = require("./routes/designationRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
+const leaveTypeRoutes = require("./routes/leaveTypeRoutes");
+const leaveBalanceRoutes = require("./routes/leaveBalanceRoutes");
+const leaveRequestRoutes = require("./routes/leaveRequestRoutes");
 
 console.log({
   DB_HOST: process.env.DB_HOST,
@@ -69,6 +72,9 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/designations", designationRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/leave-types", leaveTypeRoutes);
+app.use("/api/leave-balances", leaveBalanceRoutes);
+app.use("/api/leave-requests", leaveRequestRoutes);
 
 const PORT = process.env.PORT || 5000;
 
