@@ -3,6 +3,13 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const db = require("./config/database");
+const authRoutes = require("./routes/authRoutes");
+const authenticate = require("./middleware/authMiddleware");
+const requirePermission = require("./middleware/rbacMiddleware");
+const employeeRoutes = require("./routes/employeeRoutes");
+const departmentRoutes = require("./routes/departmentRoutes");
+const designationRoutes = require("./routes/designationRoutes");
+const attendanceRoutes = require("./routes/attendanceRoutes");
 
 console.log({
   DB_HOST: process.env.DB_HOST,
@@ -12,9 +19,6 @@ console.log({
 });
 
 const app = express();
-
-
-
 
 app.use(cors());
 app.use(express.json());
@@ -37,6 +41,34 @@ app.get("/api/health", async (req, res) => {
     });
   }
 });
+
+app.use("/api/auth", authRoutes);
+
+app.get("/api/me", authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: "Protected route accessed",
+    user: req.user,
+  });
+});
+
+app.get(
+  "/api/test/admin",
+  authenticate,
+  requirePermission("USER_READ"),
+  (req, res) => {
+    res.json({
+      success: true,
+      message: "RBAC permission verified",
+      user: req.user,
+    });
+  }
+);
+
+app.use("/api/employees", employeeRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/designations", designationRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 const PORT = process.env.PORT || 5000;
 
