@@ -406,6 +406,17 @@ const updateEmployee = async (req, res) => {
       });
     }
 
+    // Employee cannot be their own manager
+    if (
+      manager_id &&
+      Number(manager_id) === Number(employeeId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Employee cannot be their own manager",
+      });
+    }
+
     const [result] = await db.query(
       `
       UPDATE employees

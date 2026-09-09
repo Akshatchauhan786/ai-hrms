@@ -25,13 +25,11 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Public Route */}
         <Route
           path="/login"
           element={<Login />}
         />
 
-        {/* Protected Routes */}
         <Route
           element={
             <ProtectedRoute>
@@ -50,7 +48,6 @@ function App() {
           />
         </Route>
 
-        {/* Default */}
         <Route
           path="/"
           element={
@@ -61,7 +58,6 @@ function App() {
           }
         />
 
-        {/* Unknown Route */}
         <Route
           path="*"
           element={
