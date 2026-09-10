@@ -196,6 +196,7 @@ button {
   --danger-text: #f87171;
 
   --warning-bg: rgba(245, 158, 11, 0.12);
+
 }
 
 /* =========================================================
@@ -2220,5 +2221,988 @@ button {
 
   .employee-detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   COMMON MODAL
+========================================================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+
+/* =========================================================
+   VIEW / DEACTIVATE MODAL
+========================================================= */
+
+.employee-modal {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+
+  background: var(--bg) !important;
+  color: var(--text-h);
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.22);
+
+  animation: modalOpen 0.18s ease-out;
+}
+
+@keyframes modalOpen {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* =========================================================
+   MODAL HEADER
+========================================================= */
+
+.employee-modal .modal-header {
+  background: var(--bg) !important;
+
+  padding: 22px 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.employee-modal .modal-header h2 {
+  margin: 0 0 4px;
+
+  color: var(--text-h) !important;
+
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 650;
+}
+
+.employee-modal .modal-header p {
+  margin: 0;
+
+  color: var(--text) !important;
+
+  font-size: 14px;
+}
+
+
+/* Close */
+
+.employee-modal .modal-close {
+  width: 42px;
+  height: 42px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  background: var(--code-bg) !important;
+  color: var(--text) !important;
+
+  font-size: 26px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.employee-modal .modal-close:hover {
+  background: var(--border) !important;
+}
+
+
+/* =========================================================
+   VIEW MODAL
+========================================================= */
+
+.view-modal {
+  width: 650px;
+}
+
+
+/* View body */
+
+.view-modal .view-modal-body {
+  background: var(--bg) !important;
+
+  padding: 30px;
+}
+
+
+/* Employee profile */
+
+.employee-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 16px;
+
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.large-avatar {
+  width: 58px;
+  height: 58px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: var(--accent-bg);
+  color: var(--accent);
+
+  border: 1px solid var(--accent-border);
+
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.employee-profile h3 {
+  margin: 0 0 4px;
+
+  color: var(--text-h);
+
+  font-size: 21px;
+  font-weight: 650;
+}
+
+.employee-profile p {
+  margin: 0;
+
+  color: var(--text);
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   EMPLOYEE DETAILS
+========================================================= */
+
+.details-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 1px;
+
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+
+  background: var(--border);
+}
+
+.details-grid > div {
+  min-height: 76px;
+
+  padding: 15px 17px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  background: var(--bg) !important;
+}
+
+.details-grid span {
+  margin-bottom: 5px;
+
+  color: var(--text);
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.details-grid strong {
+  color: var(--text-h);
+
+  font-size: 14px;
+  font-weight: 600;
+
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   DEACTIVATE MODAL
+========================================================= */
+
+.confirmation-modal {
+  width: 470px;
+  max-width: calc(100vw - 32px);
+
+  background: var(--bg) !important;
+}
+
+
+/* Body */
+
+.confirmation-body {
+  background: var(--bg) !important;
+
+  padding: 34px 28px 30px;
+
+  text-align: center;
+}
+
+
+/* Warning */
+
+.warning-icon {
+  width: 60px;
+  height: 60px;
+
+  margin: 0 auto 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: rgba(239, 68, 68, 0.10);
+
+  color: #ef4444;
+
+  border: 1px solid rgba(239, 68, 68, 0.18);
+
+  font-size: 28px;
+  font-weight: 700;
+}
+
+
+/* Heading */
+
+.confirmation-body h3 {
+  margin: 0 0 10px;
+
+  color: var(--text-h) !important;
+
+  font-size: 21px;
+  font-weight: 650;
+}
+
+.confirmation-body p {
+  max-width: 390px;
+
+  margin: 0 auto;
+
+  color: var(--text) !important;
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   MODAL FOOTER
+========================================================= */
+
+.employee-modal .modal-footer {
+  background: var(--bg) !important;
+
+  padding: 17px 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  border-top: 1px solid var(--border);
+}
+
+
+/* Cancel */
+
+.secondary-button {
+  min-height: 40px;
+
+  padding: 0 17px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: var(--bg) !important;
+  color: var(--text-h) !important;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--code-bg) !important;
+}
+
+
+/* Danger */
+
+.danger-button {
+  min-height: 40px;
+
+  padding: 0 18px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: #dc2626 !important;
+  color: #fff !important;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #b91c1c !important;
+}
+
+.danger-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   LOADING INSIDE VIEW
+========================================================= */
+
+.view-modal .table-message {
+  min-height: 180px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--bg) !important;
+
+  color: var(--text);
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 650px) {
+
+  .employee-modal,
+  .view-modal,
+  .confirmation-modal {
+    width: calc(100vw - 24px);
+  }
+
+  .employee-modal .modal-header {
+    padding: 19px 20px;
+  }
+
+  .view-modal .view-modal-body {
+    padding: 20px;
+  }
+
+  .confirmation-body {
+    padding: 28px 20px;
+  }
+
+  .employee-modal .modal-footer {
+    padding: 15px 20px;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-modal .modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .employee-modal .modal-footer button {
+    min-width: 110px;
+  }
+}
+
+/* =========================================================
+   FINAL MODAL FIX
+   View / Add / Edit / Deactivate
+========================================================= */
+
+/* ---------- BACKDROP ---------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  /* IMPORTANT: opacity property mat lagana */
+  background: rgba(15, 23, 42, 0.58);
+
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  opacity: 1 !important;
+}
+
+
+/* ---------- ALL MODALS ---------- */
+
+.modal,
+.employee-modal,
+.confirmation-modal {
+  opacity: 1 !important;
+
+  background: #ffffff !important;
+  color: #111827 !important;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.20);
+
+  overflow: hidden;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   MODAL HEADER
+========================================================= */
+
+.modal-header {
+  background: #ffffff !important;
+
+  color: #111827 !important;
+
+  padding: 22px 28px;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  opacity: 1 !important;
+}
+
+.modal-header h2,
+.modal-header h3 {
+  margin: 0;
+
+  color: #111827 !important;
+
+  font-weight: 650;
+}
+
+.modal-header p {
+  margin: 5px 0 0;
+
+  color: #6b7280 !important;
+
+  font-size: 14px;
+}
+
+
+/* ---------- CLOSE BUTTON ---------- */
+
+.modal-close {
+  width: 40px;
+  height: 40px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+
+  font-size: 24px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  opacity: 1 !important;
+}
+
+.modal-close:hover {
+  background: #e5e7eb !important;
+}
+
+
+/* =========================================================
+   MODAL BODY
+========================================================= */
+
+.modal-body,
+.confirmation-body,
+.view-modal-body {
+  background: #ffffff !important;
+
+  color: #111827 !important;
+
+  opacity: 1 !important;
+}
+
+
+/* =========================================================
+   ADD / EDIT EMPLOYEE FORM
+========================================================= */
+
+.employee-form {
+  background: #ffffff !important;
+
+  padding: 26px 30px;
+
+  opacity: 1 !important;
+}
+
+
+/* FORM GROUP */
+
+.form-group {
+  opacity: 1 !important;
+}
+
+.form-group label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #374151 !important;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* INPUTS */
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  background: #ffffff !important;
+
+  color: #111827 !important;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 9px;
+
+  padding: 12px 14px;
+
+  font-size: 14px;
+
+  outline: none;
+
+  opacity: 1 !important;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.10);
+}
+
+
+/* SELECT */
+
+.form-group select {
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   FORM GRID
+========================================================= */
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 18px 24px;
+}
+
+
+/* =========================================================
+   MODAL FOOTER
+========================================================= */
+
+.modal-footer {
+  background: #ffffff !important;
+
+  padding: 18px 28px;
+
+  border-top: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  opacity: 1 !important;
+}
+
+
+/* ---------- CANCEL ---------- */
+
+.secondary-button,
+.cancel-button {
+  min-height: 42px;
+
+  padding: 0 18px;
+
+  background: #ffffff !important;
+  color: #1f2937 !important;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 9px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.secondary-button:hover,
+.cancel-button:hover {
+  background: #f9fafb !important;
+}
+
+
+/* ---------- PRIMARY ---------- */
+
+.primary-button {
+  min-height: 42px;
+
+  padding: 0 20px;
+
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  background: #4338ca !important;
+}
+
+
+/* =========================================================
+   VIEW EMPLOYEE
+========================================================= */
+
+.view-modal {
+  width: 650px;
+  max-width: calc(100vw - 32px);
+}
+
+.view-modal-body {
+  padding: 28px 30px;
+}
+
+
+/* PROFILE */
+
+.employee-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 15px;
+
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.large-avatar {
+  width: 56px;
+  height: 56px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
+
+  border-radius: 12px;
+
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.employee-profile h3 {
+  margin: 0 0 4px;
+
+  color: #111827 !important;
+
+  font-size: 21px;
+}
+
+.employee-profile p {
+  margin: 0;
+
+  color: #6b7280 !important;
+
+  font-size: 14px;
+}
+
+
+/* DETAILS */
+
+.details-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 1px;
+
+  background: #e5e7eb;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.details-grid > div {
+  min-height: 72px;
+
+  padding: 14px 16px;
+
+  background: #ffffff !important;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.details-grid span {
+  margin-bottom: 5px;
+
+  color: #6b7280 !important;
+
+  font-size: 12px;
+}
+
+.details-grid strong {
+  color: #111827 !important;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   DEACTIVATE
+========================================================= */
+
+.confirmation-modal {
+  width: 470px;
+  max-width: calc(100vw - 32px);
+}
+
+.confirmation-body {
+  padding: 35px 30px;
+
+  text-align: center;
+}
+
+
+/* WARNING ICON */
+
+.warning-icon {
+  width: 60px;
+  height: 60px;
+
+  margin: 0 auto 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #fef2f2 !important;
+
+  color: #ef4444 !important;
+
+  border: 1px solid #fecaca;
+
+  border-radius: 50%;
+
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.confirmation-body h3 {
+  margin: 0 0 9px;
+
+  color: #111827 !important;
+
+  font-size: 21px;
+  font-weight: 650;
+}
+
+.confirmation-body p {
+  max-width: 390px;
+
+  margin: 0 auto;
+
+  color: #6b7280 !important;
+
+  font-size: 14px;
+
+  line-height: 1.6;
+}
+
+
+/* DEACTIVATE BUTTON */
+
+.danger-button {
+  min-height: 42px;
+
+  padding: 0 20px;
+
+  background: #dc2626 !important;
+  color: #ffffff !important;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.danger-button:hover {
+  background: #b91c1c !important;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 700px) {
+
+  .modal,
+  .employee-modal,
+  .view-modal,
+  .confirmation-modal {
+    width: calc(100vw - 24px);
+
+    max-height: calc(100vh - 24px);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-form {
+    padding: 22px 20px;
+  }
+
+  .modal-header {
+    padding: 19px 20px;
+  }
+
+  .modal-footer {
+    padding: 16px 20px;
   }
 }

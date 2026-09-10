@@ -2,1459 +2,1610 @@ import { useEffect, useState } from "react";
 import api from "../../api/api";
 
 function Employees() {
-  const [employees, setEmployees] = useState([]);
+    const [employees, setEmployees] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [designations, setDesignations] = useState([]);
 
-  const [departments, setDepartments] = useState([]);
-  const [designations, setDesignations] = useState([]);
-  const [managers, setManagers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadingOptions, setLoadingOptions] = useState(true);
 
-  const [loading, setLoading] = useState(false);
-  const [loadingFormData, setLoadingFormData] = useState(false);
+    const [error, setError] = useState("");
+    const [formError, setFormError] = useState("");
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+    const [showModal, setShowModal] = useState(false);
+    const [showViewModal, setShowViewModal] = useState(false);
+    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
-  const [designationId, setDesignationId] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [viewing, setViewing] = useState(false);
+    const [deactivating, setDeactivating] = useState(false);
 
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-  });
+    const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const [showModal, setShowModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
+    // Search / Filters
+    const [search, setSearch] = useState("");
+    const [status, setStatus] = useState("");
+    const [departmentId, setDepartmentId] = useState("");
+    const [designationId, setDesignationId] = useState("");
 
-  const [editingEmployee, setEditingEmployee] = useState(null);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+    // Pagination
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+    });
 
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+    const [formData, setFormData] = useState({
+        employee_code: "",
+        first_name: "",
+        last_name: "",
+        phone: "",
+        date_of_birth: "",
+        department_id: "",
+        designation_id: "",
+        manager_id: "",
+        joining_date: "",
+        employment_type: "FULL_TIME",
+        status: "ACTIVE",
+    });
 
-  const emptyForm = {
-    id: null,
-    employee_code: "",
-    first_name: "",
-    last_name: "",
-    phone: "",
-    date_of_birth: "",
-    department_id: "",
-    designation_id: "",
-    manager_id: "",
-    joining_date: "",
-    employment_type: "FULL_TIME",
-    status: "ACTIVE",
-  };
+    /* =====================================================
+       FETCH EMPLOYEES
+    ===================================================== */
 
-  const [formData, setFormData] = useState(emptyForm);
+    const fetchEmployees = async (currentPage = page) => {
+        try {
+            setLoading(true);
+            setError("");
 
-  // =========================================================
-  // FETCH EMPLOYEES
-  // =========================================================
+            const params = {
+                page: currentPage,
+                limit,
+            };
 
-  const fetchEmployees = async (page = pagination.page) => {
-    try {
-      setLoading(true);
-      setError("");
+            if (search.trim()) {
+                params.search = search.trim();
+            }
 
-      const params = {
-        page,
-        limit: pagination.limit,
-      };
+            if (status) {
+                params.status = status;
+            }
 
-      if (search.trim()) {
-        params.search = search.trim();
-      }
+            if (departmentId) {
+                params.department_id = departmentId;
+            }
 
-      if (status) {
-        params.status = status;
-      }
+            if (designationId) {
+                params.designation_id = designationId;
+            }
 
-      if (departmentId) {
-        params.department_id = departmentId;
-      }
+            const response = await api.get("/employees", {
+                params,
+            });
 
-      if (designationId) {
-        params.designation_id = designationId;
-      }
+            setEmployees(
+                response.data.data ||
+                response.data.employees ||
+                []
+            );
 
-      const response = await api.get("/employees", { params });
+            if (response.data.pagination) {
+                setPagination(response.data.pagination);
+            }
+        } catch (error) {
+            setError(
+                error.response?.data?.message ||
+                "Failed to fetch employees"
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      if (response.data.success) {
-        setEmployees(response.data.data || []);
-        setPagination(response.data.pagination);
-      } else {
-        setError(response.data.message || "Failed to fetch employees");
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to fetch employees"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    /* =====================================================
+       FETCH DEPARTMENTS + DESIGNATIONS
+    ===================================================== */
 
-  // =========================================================
-  // FETCH FORM DATA
-  // =========================================================
+    useEffect(() => {
+        const fetchFormOptions = async () => {
+            try {
+                setLoadingOptions(true);
 
-  const fetchFormData = async () => {
-    try {
-      setLoadingFormData(true);
+                const [
+                    departmentResponse,
+                    designationResponse,
+                ] = await Promise.all([
+                    api.get("/departments"),
+                    api.get("/designations"),
+                ]);
 
-      const [departmentResponse, designationResponse, employeeResponse] =
-        await Promise.all([
-          api.get("/departments"),
-          api.get("/designations"),
-          api.get("/employees", {
-            params: {
-              page: 1,
-              limit: 100,
-              status: "ACTIVE",
-            },
-          }),
-        ]);
+                setDepartments(
+                    departmentResponse.data.data ||
+                    departmentResponse.data.departments ||
+                    []
+                );
 
-      setDepartments(
-        departmentResponse.data.data ||
-          departmentResponse.data.departments ||
-          []
-      );
+                setDesignations(
+                    designationResponse.data.data ||
+                    designationResponse.data.designations ||
+                    []
+                );
+            } catch (error) {
+                console.error(
+                    "Failed to load departments/designations:",
+                    error
+                );
+            } finally {
+                setLoadingOptions(false);
+            }
+        };
 
-      setDesignations(
-        designationResponse.data.data ||
-          designationResponse.data.designations ||
-          []
-      );
+        fetchFormOptions();
+    }, []);
 
-      setManagers(
-        employeeResponse.data.data || []
-      );
-    } catch (err) {
-      console.error("Form data error:", err);
+    /* =====================================================
+       INITIAL FETCH
+    ===================================================== */
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load department/designation data"
-      );
-    } finally {
-      setLoadingFormData(false);
-    }
-  };
+    useEffect(() => {
+        fetchEmployees(1);
+    }, []);
 
-  useEffect(() => {
-    fetchEmployees(1);
-  }, [status, departmentId, designationId]);
+    /* =====================================================
+       SEARCH / FILTER
+    ===================================================== */
 
-  useEffect(() => {
-    fetchFormData();
-  }, []);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setPage(1);
+            fetchEmployees(1);
+        }, 400);
 
-  // =========================================================
-  // SEARCH
-  // =========================================================
+        return () => clearTimeout(timer);
+    }, [
+        search,
+        status,
+        departmentId,
+        designationId,
+    ]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
+    /* =====================================================
+       FORM HANDLERS
+    ===================================================== */
 
-    fetchEmployees(1);
-  };
+    const handleChange = (e) => {
+        const { name, value } = e.target;
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatus("");
-    setDepartmentId("");
-    setDesignationId("");
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
 
-    setTimeout(() => {
-      fetchEmployees(1);
-    }, 0);
-  };
+    const resetForm = () => {
+        setFormData({
+            employee_code: "",
+            first_name: "",
+            last_name: "",
+            phone: "",
+            date_of_birth: "",
+            department_id: "",
+            designation_id: "",
+            manager_id: "",
+            joining_date: "",
+            employment_type: "FULL_TIME",
+            status: "ACTIVE",
+        });
 
-  // =========================================================
-  // FORM
-  // =========================================================
+        setFormError("");
+        setEditingEmployeeId(null);
+    };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // =========================================================
-  // OPEN ADD
-  // =========================================================
-
-  const openAddModal = () => {
-    setEditingEmployee(null);
-    setFormData(emptyForm);
-    setError("");
-    setSuccess("");
-    setShowModal(true);
-  };
-
-  // =========================================================
-  // OPEN EDIT
-  // =========================================================
-
-  const openEditModal = async (employee) => {
-    try {
-      setError("");
-      setSuccess("");
-
-      const response = await api.get(
-        `/employees/${employee.id}`
-      );
-
-      const data = response.data.data;
-
-      setEditingEmployee(data);
-
-      setFormData({
-        id: data.id,
-        employee_code: data.employee_code || "",
-        first_name: data.first_name || "",
-        last_name: data.last_name || "",
-        phone: data.phone || "",
-        date_of_birth: formatDateForInput(data.date_of_birth),
-        department_id: data.department_id || "",
-        designation_id: data.designation_id || "",
-        manager_id: data.manager_id || "",
-        joining_date: formatDateForInput(data.joining_date),
-        employment_type:
-          data.employment_type || "FULL_TIME",
-        status: data.status || "ACTIVE",
-      });
-
-      setShowModal(true);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to load employee"
-      );
-    }
-  };
-
-  // =========================================================
-  // VIEW EMPLOYEE
-  // =========================================================
-
-  const openViewModal = async (employee) => {
-    try {
-      setError("");
-
-      const response = await api.get(
-        `/employees/${employee.id}`
-      );
-
-      setSelectedEmployee(response.data.data);
-      setShowViewModal(true);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to load employee"
-      );
-    }
-  };
-
-  // =========================================================
-  // SAVE EMPLOYEE
-  // =========================================================
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
-
-      if (!formData.employee_code.trim()) {
-        setError("Employee code is required");
-        return;
-      }
-
-      if (!formData.first_name.trim()) {
-        setError("First name is required");
-        return;
-      }
-
-      if (
-        formData.manager_id &&
-        Number(formData.manager_id) === Number(formData.id)
-      ) {
-        setError(
-          "Employee cannot be their own manager"
-        );
-        return;
-      }
-
-      const payload = {
-        employee_code: formData.employee_code.trim(),
-        first_name: formData.first_name.trim(),
-        last_name: formData.last_name.trim() || null,
-        phone: formData.phone.trim() || null,
-        date_of_birth:
-          formData.date_of_birth || null,
-        department_id:
-          formData.department_id || null,
-        designation_id:
-          formData.designation_id || null,
-        manager_id:
-          formData.manager_id || null,
-        joining_date:
-          formData.joining_date || null,
-        employment_type:
-          formData.employment_type || "FULL_TIME",
-        status:
-          formData.status || "ACTIVE",
-      };
-
-      let response;
-
-      if (editingEmployee) {
-        response = await api.put(
-          `/employees/${editingEmployee.id}`,
-          payload
-        );
-      } else {
-        response = await api.post(
-          "/employees",
-          payload
-        );
-      }
-
-      if (response.data.success) {
-        setSuccess(
-          editingEmployee
-            ? "Employee updated successfully"
-            : "Employee created successfully"
-        );
+    const handleCloseModal = () => {
+        if (saving) return;
 
         setShowModal(false);
-        setEditingEmployee(null);
-        setFormData(emptyForm);
+        resetForm();
+    };
 
-        await fetchEmployees(
-          editingEmployee
-            ? pagination.page
-            : 1
-        );
+    /* =====================================================
+       ADD EMPLOYEE
+    ===================================================== */
 
-        await fetchFormData();
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to save employee"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+    const handleAddEmployee = () => {
+        resetForm();
+        setShowModal(true);
+    };
 
-  // =========================================================
-  // DEACTIVATE EMPLOYEE
-  // =========================================================
+    /* =====================================================
+       EDIT EMPLOYEE
+    ===================================================== */
 
-  const handleDeactivate = async (employee) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to deactivate ${employee.first_name} ${employee.last_name || ""}?`
-    );
+    const handleEdit = async (employee) => {
+        try {
+            setFormError("");
+            setSaving(false);
 
-    if (!confirmed) {
-      return;
-    }
+            const response = await api.get(
+                `/employees/${employee.id}`
+            );
 
-    try {
-      setDeletingId(employee.id);
-      setError("");
-      setSuccess("");
+            const data = response.data.data;
 
-      const response = await api.delete(
-        `/employees/${employee.id}`
-      );
+            setEditingEmployeeId(employee.id);
 
-      if (response.data.success) {
-        setSuccess(
-          "Employee deactivated successfully"
-        );
+            setFormData({
+                employee_code: data.employee_code || "",
+                first_name: data.first_name || "",
+                last_name: data.last_name || "",
+                phone: data.phone || "",
+                date_of_birth: data.date_of_birth
+                    ? data.date_of_birth.substring(0, 10)
+                    : "",
+                department_id: data.department_id || "",
+                designation_id: data.designation_id || "",
+                manager_id: data.manager_id || "",
+                joining_date: data.joining_date
+                    ? data.joining_date.substring(0, 10)
+                    : "",
+                employment_type:
+                    data.employment_type || "FULL_TIME",
+                status: data.status || "ACTIVE",
+            });
 
-        await fetchEmployees(
-          pagination.page
-        );
+            setShowModal(true);
+        } catch (error) {
+            setError(
+                error.response?.data?.message ||
+                "Failed to load employee"
+            );
+        }
+    };
 
-        await fetchFormData();
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to deactivate employee"
-      );
-    } finally {
-      setDeletingId(null);
-    }
-  };
+    /* =====================================================
+       VIEW EMPLOYEE
+    ===================================================== */
 
-  // =========================================================
-  // PAGINATION
-  // =========================================================
+    const handleView = async (employee) => {
+        try {
+            setViewing(true);
+            setSelectedEmployee(null);
+            setShowViewModal(true);
 
-  const goToPage = (page) => {
-    if (
-      page < 1 ||
-      page > pagination.totalPages ||
-      page === pagination.page
-    ) {
-      return;
-    }
+            const response = await api.get(
+                `/employees/${employee.id}`
+            );
 
-    fetchEmployees(page);
-  };
+            setSelectedEmployee(response.data.data);
+        } catch (error) {
+            setShowViewModal(false);
 
-  // =========================================================
-  // HELPERS
-  // =========================================================
+            setError(
+                error.response?.data?.message ||
+                "Failed to load employee details"
+            );
+        } finally {
+            setViewing(false);
+        }
+    };
 
-  const formatDateForInput = (date) => {
-    if (!date) return "";
+    /* =====================================================
+       CREATE / UPDATE
+    ===================================================== */
 
-    return String(date).split("T")[0];
-  };
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-  const formatDate = (date) => {
-    if (!date) return "-";
+        setFormError("");
 
-    const parsedDate = new Date(date);
+        if (!formData.employee_code.trim()) {
+            setFormError("Employee code is required");
+            return;
+        }
 
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
-    }
+        if (!formData.first_name.trim()) {
+            setFormError("First name is required");
+            return;
+        }
 
-    return parsedDate.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+        if (
+            formData.manager_id &&
+            editingEmployeeId &&
+            Number(formData.manager_id) ===
+                Number(editingEmployeeId)
+        ) {
+            setFormError(
+                "Employee cannot be their own manager"
+            );
+            return;
+        }
 
-  const getFullName = (employee) => {
-    return `${employee.first_name || ""} ${
-      employee.last_name || ""
-    }`.trim();
-  };
+        try {
+            setSaving(true);
 
-  const getStatusClass = (employeeStatus) => {
-    return employeeStatus === "ACTIVE"
-      ? "status-badge active"
-      : "status-badge inactive";
-  };
+            const payload = {
+                employee_code:
+                    formData.employee_code.trim(),
 
-  // =========================================================
-  // RENDER
-  // =========================================================
+                first_name:
+                    formData.first_name.trim(),
 
-  return (
-    <div className="employees-page">
+                last_name:
+                    formData.last_name.trim() || null,
 
-      {/* PAGE HEADER */}
-      <div className="page-header">
-        <div>
-          <h1>Employees</h1>
-          <p>
-            Manage your organization's employees.
-          </p>
-        </div>
+                phone:
+                    formData.phone.trim() || null,
 
-        <button
-          className="primary-button"
-          onClick={openAddModal}
-        >
-          + Add Employee
-        </button>
-      </div>
+                date_of_birth:
+                    formData.date_of_birth || null,
 
-      {/* ALERTS */}
-      {error && (
-        <div className="alert alert-error">
-          <span>⚠</span>
-          <span>{error}</span>
+                department_id:
+                    formData.department_id || null,
 
-          <button
-            onClick={() => setError("")}
-          >
-            ×
-          </button>
-        </div>
-      )}
+                designation_id:
+                    formData.designation_id || null,
 
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span>
-          <span>{success}</span>
+                manager_id:
+                    formData.manager_id || null,
 
-          <button
-            onClick={() => setSuccess("")}
-          >
-            ×
-          </button>
-        </div>
-      )}
+                joining_date:
+                    formData.joining_date || null,
 
-      {/* FILTER CARD */}
-      <div className="employee-filter-card">
+                employment_type:
+                    formData.employment_type,
 
-        <form
-          className="employee-filters"
-          onSubmit={handleSearch}
-        >
-          <div className="search-wrapper">
-            <span className="search-icon">
-              🔍
-            </span>
+                status:
+                    formData.status || "ACTIVE",
+            };
 
-            <input
-              type="text"
-              placeholder="Search by name or employee code..."
-              value={search}
-              onChange={(e) =>
-                setSearch(e.target.value)
-              }
-            />
-          </div>
-
-          <select
-            value={departmentId}
-            onChange={(e) =>
-              setDepartmentId(e.target.value)
+            if (editingEmployeeId) {
+                await api.put(
+                    `/employees/${editingEmployeeId}`,
+                    payload
+                );
+            } else {
+                await api.post(
+                    "/employees",
+                    payload
+                );
             }
-          >
-            <option value="">
-              All Departments
-            </option>
 
-            {departments.map((department) => (
-              <option
-                key={department.id}
-                value={department.id}
-              >
-                {department.name}
-              </option>
-            ))}
-          </select>
+            setShowModal(false);
+            resetForm();
 
-          <select
-            value={designationId}
-            onChange={(e) =>
-              setDesignationId(e.target.value)
-            }
-          >
-            <option value="">
-              All Designations
-            </option>
+            await fetchEmployees(page);
+        } catch (error) {
+            setFormError(
+                error.response?.data?.message ||
+                (
+                    editingEmployeeId
+                        ? "Failed to update employee"
+                        : "Failed to create employee"
+                )
+            );
+        } finally {
+            setSaving(false);
+        }
+    };
 
-            {designations.map((designation) => (
-              <option
-                key={designation.id}
-                value={designation.id}
-              >
-                {designation.name}
-              </option>
-            ))}
-          </select>
+    /* =====================================================
+       DEACTIVATE
+    ===================================================== */
 
-          <select
-            value={status}
-            onChange={(e) =>
-              setStatus(e.target.value)
-            }
-          >
-            <option value="">
-              All Status
-            </option>
+    const handleDeactivateClick = (employee) => {
+        setSelectedEmployee(employee);
+        setShowDeactivateModal(true);
+    };
 
-            <option value="ACTIVE">
-              Active
-            </option>
+    const handleDeactivate = async () => {
+        if (!selectedEmployee) return;
 
-            <option value="INACTIVE">
-              Inactive
-            </option>
-          </select>
+        try {
+            setDeactivating(true);
 
-          <button
-            type="submit"
-            className="filter-button"
-          >
-            Search
-          </button>
+            await api.delete(
+                `/employees/${selectedEmployee.id}`
+            );
 
-          <button
-            type="button"
-            className="clear-filter-button"
-            onClick={clearFilters}
-          >
-            Clear
-          </button>
-        </form>
+            setShowDeactivateModal(false);
+            setSelectedEmployee(null);
 
-      </div>
+            await fetchEmployees(page);
+        } catch (error) {
+            setError(
+                error.response?.data?.message ||
+                "Failed to deactivate employee"
+            );
+        } finally {
+            setDeactivating(false);
+        }
+    };
 
-      {/* EMPLOYEE TABLE */}
-      <div className="employee-card">
+    /* =====================================================
+       ACTIVATE
+    ===================================================== */
 
-        <div className="employee-card-header">
-          <div>
-            <h2>All Employees</h2>
-
-            <span>
-              {pagination.total} employee
-              {pagination.total !== 1
-                ? "s"
-                : ""}
-            </span>
-          </div>
-
-          <button
-            className="refresh-button"
-            onClick={() =>
-              fetchEmployees(
-                pagination.page
-              )
-            }
-            disabled={loading}
-          >
-            ↻ Refresh
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="table-state">
-            <div className="spinner"></div>
-            <p>Loading employees...</p>
-          </div>
-        ) : employees.length === 0 ? (
-          <div className="table-state empty-state">
-            <div className="empty-icon">
-              👥
-            </div>
-
-            <h3>No employees found</h3>
-
-            <p>
-              Try changing your filters or add a
-              new employee.
-            </p>
-
-            <button
-              className="primary-button"
-              onClick={openAddModal}
-            >
-              + Add Employee
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="table-wrapper">
-              <table className="employees-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Code</th>
-                    <th>Department</th>
-                    <th>Designation</th>
-                    <th>Joining Date</th>
-                    <th>Employment</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {employees.map((employee) => (
-                    <tr key={employee.id}>
-
-                      <td>
-                        <div className="employee-cell">
-                          <div className="employee-avatar">
-                            {employee.first_name
-                              ?.charAt(0)
-                              ?.toUpperCase()}
-                          </div>
-
-                          <div>
-                            <strong>
-                              {getFullName(employee)}
-                            </strong>
-
-                            <span>
-                              {employee.phone ||
-                                "No phone"}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span className="employee-code">
-                          {employee.employee_code}
-                        </span>
-                      </td>
-
-                      <td>
-                        {employee.department_name ||
-                          "-"}
-                      </td>
-
-                      <td>
-                        {employee.designation_name ||
-                          "-"}
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          employee.joining_date
-                        )}
-                      </td>
-
-                      <td>
-                        {formatEmploymentType(
-                          employee.employment_type
-                        )}
-                      </td>
-
-                      <td>
-                        <span
-                          className={getStatusClass(
-                            employee.status
-                          )}
-                        >
-                          {employee.status}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="action-buttons">
-
-                          <button
-                            className="icon-action view"
-                            title="View Employee"
-                            onClick={() =>
-                              openViewModal(
-                                employee
-                              )
-                            }
-                          >
-                            👁
-                          </button>
-
-                          <button
-                            className="icon-action edit"
-                            title="Edit Employee"
-                            onClick={() =>
-                              openEditModal(
-                                employee
-                              )
-                            }
-                          >
-                            ✏
-                          </button>
-
-                          {employee.status ===
-                            "ACTIVE" && (
-                            <button
-                              className="icon-action delete"
-                              title="Deactivate Employee"
-                              onClick={() =>
-                                handleDeactivate(
-                                  employee
-                                )
-                              }
-                              disabled={
-                                deletingId ===
-                                employee.id
-                              }
-                            >
-                              {deletingId ===
-                              employee.id
-                                ? "..."
-                                : "🗑"}
-                            </button>
-                          )}
-
-                        </div>
-                      </td>
-
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* PAGINATION */}
-            <div className="pagination">
-
-              <div className="pagination-info">
-                Showing{" "}
-                {pagination.total === 0
-                  ? 0
-                  : (pagination.page - 1) *
-                      pagination.limit +
-                    1}{" "}
-                -
-                {Math.min(
-                  pagination.page *
-                    pagination.limit,
-                  pagination.total
-                )}{" "}
-                of {pagination.total}
-              </div>
-
-              <div className="pagination-buttons">
-
-                <button
-                  disabled={
-                    pagination.page === 1
-                  }
-                  onClick={() =>
-                    goToPage(
-                      pagination.page - 1
-                    )
-                  }
-                >
-                  ←
-                </button>
-
-                {getPageNumbers(
-                  pagination.page,
-                  pagination.totalPages
-                ).map((page, index) =>
-                  page === "..." ? (
-                    <span
-                      key={`dots-${index}`}
-                      className="pagination-dots"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      className={
-                        pagination.page === page
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        goToPage(page)
-                      }
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
-
-                <button
-                  disabled={
-                    pagination.page ===
-                    pagination.totalPages
-                  }
-                  onClick={() =>
-                    goToPage(
-                      pagination.page + 1
-                    )
-                  }
-                >
-                  →
-                </button>
-
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* =====================================================
-          ADD / EDIT MODAL
-      ===================================================== */}
-
-      {showModal && (
-        <div
-          className="modal-overlay"
-          onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget &&
-              !saving
-            ) {
-              setShowModal(false);
-            }
-          }}
-        >
-          <div className="employee-modal">
-
-            <div className="modal-header">
-              <div>
-                <h2>
-                  {editingEmployee
-                    ? "Edit Employee"
-                    : "Add Employee"}
-                </h2>
-
-                <p>
-                  {editingEmployee
-                    ? "Update employee information"
-                    : "Create a new employee profile"}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() =>
-                  setShowModal(false)
+    const handleActivate = async (employee) => {
+        try {
+            await api.put(
+                `/employees/${employee.id}`,
+                {
+                    employee_code: employee.employee_code,
+                    first_name: employee.first_name,
+                    last_name: employee.last_name || null,
+                    phone: employee.phone || null,
+                    joining_date:
+                        employee.joining_date || null,
+                    employment_type:
+                        employee.employment_type ||
+                        "FULL_TIME",
+                    status: "ACTIVE",
                 }
-                disabled={saving}
-              >
-                ×
-              </button>
-            </div>
+            );
 
-            <form
-              className="employee-form"
-              onSubmit={handleSubmit}
-            >
+            await fetchEmployees(page);
+        } catch (error) {
+            setError(
+                error.response?.data?.message ||
+                "Failed to activate employee"
+            );
+        }
+    };
 
-              <div className="form-grid">
+    /* =====================================================
+       PAGINATION
+    ===================================================== */
 
-                <FormField
-                  label="Employee Code"
-                  required
-                >
-                  <input
-                    type="text"
-                    name="employee_code"
-                    value={
-                      formData.employee_code
-                    }
-                    onChange={handleChange}
-                    placeholder="EMP001"
-                    required
-                  />
-                </FormField>
+    const handlePageChange = (newPage) => {
+        if (
+            newPage < 1 ||
+            newPage > pagination.totalPages
+        ) {
+            return;
+        }
 
-                <FormField
-                  label="First Name"
-                  required
-                >
-                  <input
-                    type="text"
-                    name="first_name"
-                    value={
-                      formData.first_name
-                    }
-                    onChange={handleChange}
-                    placeholder="First name"
-                    required
-                  />
-                </FormField>
+        setPage(newPage);
+        fetchEmployees(newPage);
+    };
 
-                <FormField label="Last Name">
-                  <input
-                    type="text"
-                    name="last_name"
-                    value={
-                      formData.last_name
-                    }
-                    onChange={handleChange}
-                    placeholder="Last name"
-                  />
-                </FormField>
+    /* =====================================================
+       RENDER
+    ===================================================== */
 
-                <FormField label="Phone">
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="9876543210"
-                  />
-                </FormField>
+    return (
+        <div className="employees-page">
 
-                <FormField label="Date of Birth">
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={
-                      formData.date_of_birth
-                    }
-                    onChange={handleChange}
-                  />
-                </FormField>
+            {/* PAGE HEADER */}
 
-                <FormField label="Joining Date">
-                  <input
-                    type="date"
-                    name="joining_date"
-                    value={
-                      formData.joining_date
-                    }
-                    onChange={handleChange}
-                  />
-                </FormField>
-
-                <FormField label="Department">
-                  <select
-                    name="department_id"
-                    value={
-                      formData.department_id
-                    }
-                    onChange={handleChange}
-                    disabled={
-                      loadingFormData
-                    }
-                  >
-                    <option value="">
-                      Select Department
-                    </option>
-
-                    {departments.map(
-                      (department) => (
-                        <option
-                          key={department.id}
-                          value={department.id}
-                        >
-                          {department.name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </FormField>
-
-                <FormField label="Designation">
-                  <select
-                    name="designation_id"
-                    value={
-                      formData.designation_id
-                    }
-                    onChange={handleChange}
-                    disabled={
-                      loadingFormData
-                    }
-                  >
-                    <option value="">
-                      Select Designation
-                    </option>
-
-                    {designations.map(
-                      (designation) => (
-                        <option
-                          key={designation.id}
-                          value={designation.id}
-                        >
-                          {designation.name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </FormField>
-
-                <FormField label="Manager">
-                  <select
-                    name="manager_id"
-                    value={
-                      formData.manager_id
-                    }
-                    onChange={handleChange}
-                    disabled={
-                      loadingFormData
-                    }
-                  >
-                    <option value="">
-                      No Manager
-                    </option>
-
-                    {managers
-                      .filter(
-                        (manager) =>
-                          Number(manager.id) !==
-                          Number(formData.id)
-                      )
-                      .map((manager) => (
-                        <option
-                          key={manager.id}
-                          value={manager.id}
-                        >
-                          {getFullName(
-                            manager
-                          )}{" "}
-                          (
-                          {
-                            manager.employee_code
-                          }
-                          )
-                        </option>
-                      ))}
-                  </select>
-                </FormField>
-
-                <FormField label="Employment Type">
-                  <select
-                    name="employment_type"
-                    value={
-                      formData.employment_type
-                    }
-                    onChange={handleChange}
-                  >
-                    <option value="FULL_TIME">
-                      Full Time
-                    </option>
-
-                    <option value="PART_TIME">
-                      Part Time
-                    </option>
-
-                    <option value="CONTRACT">
-                      Contract
-                    </option>
-
-                    <option value="INTERN">
-                      Intern
-                    </option>
-
-                    <option value="TEMPORARY">
-                      Temporary
-                    </option>
-                  </select>
-                </FormField>
-
-                {editingEmployee && (
-                  <FormField label="Status">
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                    >
-                      <option value="ACTIVE">
-                        Active
-                      </option>
-
-                      <option value="INACTIVE">
-                        Inactive
-                      </option>
-                    </select>
-                  </FormField>
-                )}
-
-              </div>
-
-              <div className="modal-footer">
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    setShowModal(false)
-                  }
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="primary-button"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Saving..."
-                    : editingEmployee
-                    ? "Update Employee"
-                    : "Create Employee"}
-                </button>
-
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          VIEW MODAL
-      ===================================================== */}
-
-      {showViewModal &&
-        selectedEmployee && (
-          <div
-            className="modal-overlay"
-            onMouseDown={(e) => {
-              if (
-                e.target === e.currentTarget
-              ) {
-                setShowViewModal(false);
-              }
-            }}
-          >
-            <div className="employee-modal view-modal">
-
-              <div className="modal-header">
+            <div className="page-header employee-header">
                 <div>
-                  <h2>
-                    Employee Details
-                  </h2>
-
-                  <p>
-                    Employee profile information
-                  </p>
-                </div>
-
-                <button
-                  className="modal-close"
-                  onClick={() =>
-                    setShowViewModal(false)
-                  }
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="employee-view-content">
-
-                <div className="employee-profile-header">
-
-                  <div className="large-avatar">
-                    {selectedEmployee.first_name
-                      ?.charAt(0)
-                      ?.toUpperCase()}
-                  </div>
-
-                  <div>
-                    <h3>
-                      {getFullName(
-                        selectedEmployee
-                      )}
-                    </h3>
+                    <h1>Employees</h1>
 
                     <p>
-                      {
-                        selectedEmployee.employee_code
-                      }
+                        Manage your organization's employees.
                     </p>
-
-                    <span
-                      className={getStatusClass(
-                        selectedEmployee.status
-                      )}
-                    >
-                      {
-                        selectedEmployee.status
-                      }
-                    </span>
-                  </div>
-
                 </div>
 
-                <div className="employee-detail-grid">
+                <button
+                    className="primary-button"
+                    onClick={handleAddEmployee}
+                >
+                    + Add Employee
+                </button>
+            </div>
 
-                  <DetailItem
-                    label="Employee Code"
-                    value={
-                      selectedEmployee.employee_code
-                    }
-                  />
 
-                  <DetailItem
-                    label="Phone"
-                    value={
-                      selectedEmployee.phone
-                    }
-                  />
+            {/* FILTER BAR */}
 
-                  <DetailItem
-                    label="Department"
-                    value={
-                      selectedEmployee.department_name
-                    }
-                  />
+            <div className="employee-filters">
 
-                  <DetailItem
-                    label="Designation"
-                    value={
-                      selectedEmployee.designation_name
-                    }
-                  />
-
-                  <DetailItem
-                    label="Manager"
-                    value={
-                      selectedEmployee.manager_name
-                    }
-                  />
-
-                  <DetailItem
-                    label="Date of Birth"
-                    value={formatDate(
-                      selectedEmployee.date_of_birth
-                    )}
-                  />
-
-                  <DetailItem
-                    label="Joining Date"
-                    value={formatDate(
-                      selectedEmployee.joining_date
-                    )}
-                  />
-
-                  <DetailItem
-                    label="Employment Type"
-                    value={formatEmploymentType(
-                      selectedEmployee.employment_type
-                    )}
-                  />
-
+                <div className="search-wrapper">
+                    <input
+                        type="text"
+                        placeholder="Search employee..."
+                        value={search}
+                        onChange={(e) =>
+                            setSearch(e.target.value)
+                        }
+                        className="search-input"
+                    />
                 </div>
 
-              </div>
+                <select
+                    value={departmentId}
+                    onChange={(e) =>
+                        setDepartmentId(e.target.value)
+                    }
+                    className="filter-select"
+                >
+                    <option value="">
+                        All Departments
+                    </option>
 
-              <div className="modal-footer">
+                    {departments.map((department) => (
+                        <option
+                            key={department.id}
+                            value={department.id}
+                        >
+                            {department.name}
+                        </option>
+                    ))}
+                </select>
+
+                <select
+                    value={designationId}
+                    onChange={(e) =>
+                        setDesignationId(e.target.value)
+                    }
+                    className="filter-select"
+                >
+                    <option value="">
+                        All Designations
+                    </option>
+
+                    {designations.map((designation) => (
+                        <option
+                            key={designation.id}
+                            value={designation.id}
+                        >
+                            {designation.name}
+                        </option>
+                    ))}
+                </select>
+
+                <select
+                    value={status}
+                    onChange={(e) =>
+                        setStatus(e.target.value)
+                    }
+                    className="filter-select"
+                >
+                    <option value="">
+                        All Status
+                    </option>
+
+                    <option value="ACTIVE">
+                        Active
+                    </option>
+
+                    <option value="INACTIVE">
+                        Inactive
+                    </option>
+                </select>
 
                 <button
-                  className="secondary-button"
-                  onClick={() =>
-                    setShowViewModal(false)
-                  }
+                    className="refresh-button"
+                    onClick={() =>
+                        fetchEmployees(page)
+                    }
                 >
-                  Close
+                    ↻ Refresh
                 </button>
-
-                <button
-                  className="primary-button"
-                  onClick={() => {
-                    setShowViewModal(false);
-
-                    openEditModal(
-                      selectedEmployee
-                    );
-                  }}
-                >
-                  ✏ Edit Employee
-                </button>
-
-              </div>
 
             </div>
-          </div>
-        )}
 
-    </div>
-  );
-}
 
-// =========================================================
-// SMALL COMPONENTS
-// =========================================================
+            {/* EMPLOYEE CARD */}
 
-function FormField({
-  label,
-  required,
-  children,
-}) {
-  return (
-    <div className="form-group">
-      <label>
-        {label}
+            <div className="employee-card">
 
-        {required && (
-          <span className="required-star">
-            *
-          </span>
-        )}
-      </label>
+                <div className="table-header">
+                    <div>
+                        <h3>All Employees</h3>
 
-      {children}
-    </div>
-  );
-}
+                        <p>
+                            {pagination.total ||
+                                employees.length}{" "}
+                            employee(s)
+                        </p>
+                    </div>
+                </div>
 
-function DetailItem({ label, value }) {
-  return (
-    <div className="detail-item">
-      <span>{label}</span>
 
-      <strong>
-        {value || "-"}
-      </strong>
-    </div>
-  );
-}
+                {loading && (
+                    <div className="table-message">
+                        Loading employees...
+                    </div>
+                )}
 
-// =========================================================
-// HELPERS
-// =========================================================
 
-function formatEmploymentType(type) {
-  if (!type) return "-";
+                {error && (
+                    <div className="table-error">
+                        {error}
+                    </div>
+                )}
 
-  return type
-    .toLowerCase()
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
+
+                {!loading &&
+                    !error &&
+                    employees.length === 0 && (
+                        <div className="table-message">
+                            No employees found.
+                        </div>
+                    )}
+
+
+                {!loading &&
+                    employees.length > 0 && (
+                        <div className="table-wrapper">
+
+                            <table className="employee-table">
+
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Code</th>
+                                        <th>Phone</th>
+                                        <th>Department</th>
+                                        <th>Designation</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+
+
+                                <tbody>
+
+                                    {employees.map(
+                                        (employee) => (
+                                            <tr
+                                                key={
+                                                    employee.id
+                                                }
+                                            >
+
+                                                <td>
+                                                    <div className="employee-name">
+
+                                                        <div className="employee-avatar">
+                                                            {employee.first_name
+                                                                ?.charAt(
+                                                                    0
+                                                                )
+                                                                ?.toUpperCase()}
+                                                        </div>
+
+                                                        <strong>
+                                                            {
+                                                                employee.first_name
+                                                            }{" "}
+                                                            {employee.last_name ||
+                                                                ""}
+                                                        </strong>
+
+                                                    </div>
+                                                </td>
+
+
+                                                <td>
+                                                    {
+                                                        employee.employee_code
+                                                    }
+                                                </td>
+
+
+                                                <td>
+                                                    {employee.phone ||
+                                                        "-"}
+                                                </td>
+
+
+                                                <td>
+                                                    {
+                                                        employee.department_name ||
+                                                        "-"
+                                                    }
+                                                </td>
+
+
+                                                <td>
+                                                    {
+                                                        employee.designation_name ||
+                                                        "-"
+                                                    }
+                                                </td>
+
+
+                                                <td>
+
+                                                    <span
+                                                        className={`status-badge ${
+                                                            employee.status?.toLowerCase() ||
+                                                            "active"
+                                                        }`}
+                                                    >
+                                                        {employee.status ||
+                                                            "ACTIVE"}
+                                                    </span>
+
+                                                </td>
+
+
+                                                <td>
+
+                                                    <div className="employee-actions">
+
+                                                        <button
+                                                            className="action-button view"
+                                                            onClick={() =>
+                                                                handleView(
+                                                                    employee
+                                                                )
+                                                            }
+                                                            title="View"
+                                                        >
+                                                            👁
+                                                        </button>
+
+                                                        <button
+                                                            className="action-button edit"
+                                                            onClick={() =>
+                                                                handleEdit(
+                                                                    employee
+                                                                )
+                                                            }
+                                                            title="Edit"
+                                                        >
+                                                            ✏️
+                                                        </button>
+
+
+                                                        {employee.status ===
+                                                        "INACTIVE" ? (
+                                                            <button
+                                                                className="action-button activate"
+                                                                onClick={() =>
+                                                                    handleActivate(
+                                                                        employee
+                                                                    )
+                                                                }
+                                                                title="Activate"
+                                                            >
+                                                                ✓
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="action-button deactivate"
+                                                                onClick={() =>
+                                                                    handleDeactivateClick(
+                                                                        employee
+                                                                    )
+                                                                }
+                                                                title="Deactivate"
+                                                            >
+                                                                ⛔
+                                                            </button>
+                                                        )}
+
+                                                    </div>
+
+                                                </td>
+
+                                            </tr>
+                                        )
+                                    )}
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+                    )}
+
+
+                {/* PAGINATION */}
+
+                {!loading &&
+                    pagination.totalPages > 1 && (
+                        <div className="employee-pagination">
+
+                            <button
+                                className="pagination-button"
+                                disabled={
+                                    page === 1
+                                }
+                                onClick={() =>
+                                    handlePageChange(
+                                        page - 1
+                                    )
+                                }
+                            >
+                                Previous
+                            </button>
+
+
+                            <span>
+                                Page {page} of{" "}
+                                {
+                                    pagination.totalPages
+                                }
+                            </span>
+
+
+                            <button
+                                className="pagination-button"
+                                disabled={
+                                    page ===
+                                    pagination.totalPages
+                                }
+                                onClick={() =>
+                                    handlePageChange(
+                                        page + 1
+                                    )
+                                }
+                            >
+                                Next
+                            </button>
+
+                        </div>
+                    )}
+
+            </div>
+
+
+            {/* =================================================
+                ADD / EDIT MODAL
+            ================================================= */}
+
+            {showModal && (
+                <div
+                    className="modal-overlay"
+                    onMouseDown={(e) => {
+                        if (
+                            e.target ===
+                            e.currentTarget
+                        ) {
+                            handleCloseModal();
+                        }
+                    }}
+                >
+
+                    <div className="employee-modal">
+
+                        <div className="modal-header">
+
+                            <div>
+                                <h2>
+                                    {editingEmployeeId
+                                        ? "Edit Employee"
+                                        : "Add Employee"}
+                                </h2>
+
+                                <p>
+                                    {editingEmployeeId
+                                        ? "Update employee information"
+                                        : "Create a new employee profile"}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={
+                                    handleCloseModal
+                                }
+                                disabled={saving}
+                            >
+                                ×
+                            </button>
+
+                        </div>
+
+
+                        <form
+                            className="employee-form"
+                            onSubmit={handleSubmit}
+                        >
+
+                            {formError && (
+                                <div className="form-error">
+                                    {formError}
+                                </div>
+                            )}
+
+
+                            <div className="form-grid">
+
+                                <div className="form-group">
+                                    <label>
+                                        Employee Code *
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="employee_code"
+                                        value={
+                                            formData.employee_code
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="EMP002"
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        First Name *
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="first_name"
+                                        value={
+                                            formData.first_name
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="First name"
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Last Name
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="last_name"
+                                        value={
+                                            formData.last_name
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="Last name"
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Phone
+                                    </label>
+
+                                    <input
+                                        type="tel"
+                                        name="phone"
+                                        value={
+                                            formData.phone
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        placeholder="Phone number"
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Date of Birth
+                                    </label>
+
+                                    <input
+                                        type="date"
+                                        name="date_of_birth"
+                                        value={
+                                            formData.date_of_birth
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Joining Date
+                                    </label>
+
+                                    <input
+                                        type="date"
+                                        name="joining_date"
+                                        value={
+                                            formData.joining_date
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                    />
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Department
+                                    </label>
+
+                                    <select
+                                        name="department_id"
+                                        value={
+                                            formData.department_id
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        disabled={
+                                            loadingOptions
+                                        }
+                                    >
+                                        <option value="">
+                                            {loadingOptions
+                                                ? "Loading departments..."
+                                                : "Select Department"}
+                                        </option>
+
+                                        {departments.map(
+                                            (department) => (
+                                                <option
+                                                    key={
+                                                        department.id
+                                                    }
+                                                    value={
+                                                        department.id
+                                                    }
+                                                >
+                                                    {
+                                                        department.name
+                                                    }
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Designation
+                                    </label>
+
+                                    <select
+                                        name="designation_id"
+                                        value={
+                                            formData.designation_id
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                        disabled={
+                                            loadingOptions
+                                        }
+                                    >
+                                        <option value="">
+                                            {loadingOptions
+                                                ? "Loading designations..."
+                                                : "Select Designation"}
+                                        </option>
+
+                                        {designations.map(
+                                            (designation) => (
+                                                <option
+                                                    key={
+                                                        designation.id
+                                                    }
+                                                    value={
+                                                        designation.id
+                                                    }
+                                                >
+                                                    {
+                                                        designation.name
+                                                    }
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Manager
+                                    </label>
+
+                                    <select
+                                        name="manager_id"
+                                        value={
+                                            formData.manager_id
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                    >
+                                        <option value="">
+                                            Select Manager
+                                        </option>
+
+                                        {employees
+                                            .filter(
+                                                (employee) =>
+                                                    !editingEmployeeId ||
+                                                    Number(
+                                                        employee.id
+                                                    ) !==
+                                                        Number(
+                                                            editingEmployeeId
+                                                        )
+                                            )
+                                            .map(
+                                                (
+                                                    employee
+                                                ) => (
+                                                    <option
+                                                        key={
+                                                            employee.id
+                                                        }
+                                                        value={
+                                                            employee.id
+                                                        }
+                                                    >
+                                                        {
+                                                            employee.first_name
+                                                        }{" "}
+                                                        {employee.last_name ||
+                                                            ""}{" "}
+                                                        (
+                                                        {
+                                                            employee.employee_code
+                                                        }
+                                                        )
+                                                    </option>
+                                                )
+                                            )}
+                                    </select>
+                                </div>
+
+
+                                <div className="form-group">
+                                    <label>
+                                        Employment Type
+                                    </label>
+
+                                    <select
+                                        name="employment_type"
+                                        value={
+                                            formData.employment_type
+                                        }
+                                        onChange={
+                                            handleChange
+                                        }
+                                    >
+                                        <option value="FULL_TIME">
+                                            Full Time
+                                        </option>
+
+                                        <option value="PART_TIME">
+                                            Part Time
+                                        </option>
+
+                                        <option value="CONTRACT">
+                                            Contract
+                                        </option>
+
+                                        <option value="INTERN">
+                                            Intern
+                                        </option>
+                                    </select>
+                                </div>
+
+
+                                {editingEmployeeId && (
+                                    <div className="form-group">
+                                        <label>
+                                            Status
+                                        </label>
+
+                                        <select
+                                            name="status"
+                                            value={
+                                                formData.status
+                                            }
+                                            onChange={
+                                                handleChange
+                                            }
+                                        >
+                                            <option value="ACTIVE">
+                                                Active
+                                            </option>
+
+                                            <option value="INACTIVE">
+                                                Inactive
+                                            </option>
+                                        </select>
+                                    </div>
+                                )}
+
+                            </div>
+
+
+                            <div className="modal-footer">
+
+                                <button
+                                    type="button"
+                                    className="secondary-button"
+                                    onClick={
+                                        handleCloseModal
+                                    }
+                                    disabled={saving}
+                                >
+                                    Cancel
+                                </button>
+
+
+                                <button
+                                    type="submit"
+                                    className="primary-button"
+                                    disabled={saving}
+                                >
+                                    {saving
+                                        ? editingEmployeeId
+                                            ? "Updating..."
+                                            : "Creating..."
+                                        : editingEmployeeId
+                                            ? "Update Employee"
+                                            : "Create Employee"}
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                </div>
+            )}
+
+
+            {/* =================================================
+                VIEW MODAL
+            ================================================= */}
+
+            {showViewModal && (
+                <div
+                    className="modal-overlay"
+                    onMouseDown={(e) => {
+                        if (
+                            e.target ===
+                            e.currentTarget
+                        ) {
+                            setShowViewModal(false);
+                        }
+                    }}
+                >
+
+                    <div className="employee-modal view-modal">
+
+                        <div className="modal-header">
+
+                            <div>
+                                <h2>
+                                    Employee Details
+                                </h2>
+
+                                <p>
+                                    Complete employee information
+                                </p>
+                            </div>
+
+                            <button
+                                className="modal-close"
+                                onClick={() =>
+                                    setShowViewModal(
+                                        false
+                                    )
+                                }
+                            >
+                                ×
+                            </button>
+
+                        </div>
+
+
+                        <div className="view-modal-body">
+
+                            {viewing && (
+                                <div className="table-message">
+                                    Loading employee details...
+                                </div>
+                            )}
+
+
+                            {!viewing &&
+                                selectedEmployee && (
+                                    <>
+
+                                        <div className="employee-profile">
+
+                                            <div className="large-avatar">
+                                                {selectedEmployee.first_name
+                                                    ?.charAt(
+                                                        0
+                                                    )
+                                                    ?.toUpperCase()}
+                                            </div>
+
+                                            <div>
+                                                <h3>
+                                                    {
+                                                        selectedEmployee.first_name
+                                                    }{" "}
+                                                    {
+                                                        selectedEmployee.last_name ||
+                                                        ""
+                                                    }
+                                                </h3>
+
+                                                <p>
+                                                    {
+                                                        selectedEmployee.employee_code
+                                                    }
+                                                </p>
+                                            </div>
+
+                                        </div>
+
+
+                                        <div className="details-grid">
+
+                                            <div>
+                                                <span>
+                                                    Phone
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.phone ||
+                                                        "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Date of Birth
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.date_of_birth
+                                                            ? selectedEmployee.date_of_birth.substring(
+                                                                  0,
+                                                                  10
+                                                              )
+                                                            : "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Department
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.department_name ||
+                                                        "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Designation
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.designation_name ||
+                                                        "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Manager
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.manager_name ||
+                                                        "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Joining Date
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.joining_date
+                                                            ? selectedEmployee.joining_date.substring(
+                                                                  0,
+                                                                  10
+                                                              )
+                                                            : "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Employment Type
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.employment_type ||
+                                                        "-"
+                                                    }
+                                                </strong>
+                                            </div>
+
+
+                                            <div>
+                                                <span>
+                                                    Status
+                                                </span>
+
+                                                <strong>
+                                                    {
+                                                        selectedEmployee.status ||
+                                                        "ACTIVE"
+                                                    }
+                                                </strong>
+                                            </div>
+
+                                        </div>
+
+                                    </>
+                                )}
+
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
+
+
+            {/* =================================================
+                DEACTIVATE CONFIRMATION MODAL
+            ================================================= */}
+
+            {showDeactivateModal &&
+                selectedEmployee && (
+                    <div
+                        className="modal-overlay"
+                        onMouseDown={(e) => {
+                            if (
+                                e.target ===
+                                e.currentTarget &&
+                                !deactivating
+                            ) {
+                                setShowDeactivateModal(
+                                    false
+                                );
+                            }
+                        }}
+                    >
+
+                        <div className="employee-modal confirmation-modal">
+
+                            <div className="modal-header">
+
+                                <div>
+                                    <h2>
+                                        Deactivate Employee
+                                    </h2>
+
+                                    <p>
+                                        Please confirm this action
+                                    </p>
+                                </div>
+
+                                <button
+                                    className="modal-close"
+                                    onClick={() =>
+                                        setShowDeactivateModal(
+                                            false
+                                        )
+                                    }
+                                    disabled={
+                                        deactivating
+                                    }
+                                >
+                                    ×
+                                </button>
+
+                            </div>
+
+
+                            <div className="confirmation-body">
+
+                                <div className="warning-icon">
+                                    !
+                                </div>
+
+                                <h3>
+                                    Deactivate{" "}
+                                    {
+                                        selectedEmployee.first_name
+                                    }{" "}
+                                    {
+                                        selectedEmployee.last_name ||
+                                        ""
+                                    }?
+                                </h3>
+
+                                <p>
+                                    This employee will be marked
+                                    as inactive. Their data will
+                                    not be permanently deleted.
+                                </p>
+
+                            </div>
+
+
+                            <div className="modal-footer">
+
+                                <button
+                                    className="secondary-button"
+                                    onClick={() =>
+                                        setShowDeactivateModal(
+                                            false
+                                        )
+                                    }
+                                    disabled={
+                                        deactivating
+                                    }
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    className="danger-button"
+                                    onClick={
+                                        handleDeactivate
+                                    }
+                                    disabled={
+                                        deactivating
+                                    }
+                                >
+                                    {deactivating
+                                        ? "Deactivating..."
+                                        : "Yes, Deactivate"}
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )}
+
+        </div>
     );
-}
-
-function getPageNumbers(
-  currentPage,
-  totalPages
-) {
-  if (totalPages <= 7) {
-    return Array.from(
-      { length: totalPages },
-      (_, index) => index + 1
-    );
-  }
-
-  if (currentPage <= 4) {
-    return [
-      1,
-      2,
-      3,
-      4,
-      5,
-      "...",
-      totalPages,
-    ];
-  }
-
-  if (currentPage >= totalPages - 3) {
-    return [
-      1,
-      "...",
-      totalPages - 4,
-      totalPages - 3,
-      totalPages - 2,
-      totalPages - 1,
-      totalPages,
-    ];
-  }
-
-  return [
-    1,
-    "...",
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-    "...",
-    totalPages,
-  ];
 }
 
 export default Employees;

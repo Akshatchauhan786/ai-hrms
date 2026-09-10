@@ -11,9 +11,28 @@ const authenticate = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.post("/check-in", authenticate, checkIn);
-router.post("/check-out", authenticate, checkOut);
-router.get("/", authenticate, getAttendance);
-router.get("/:employeeId", authenticate, getEmployeeAttendance);
+router.post(
+  "/check-in",
+  authenticate,
+  checkIn
+);
+
+router.post(
+  "/check-out",
+  authenticate,
+  checkOut
+);
+
+router.get(
+  "/",
+  authenticate,
+  getAttendance
+);
+
+router.get(
+  "/:employeeId",
+  authenticate,
+  getEmployeeAttendance
+);
 
 module.exports = router;

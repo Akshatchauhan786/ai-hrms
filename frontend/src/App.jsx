@@ -9,6 +9,9 @@ import Login from "./pages/auth/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import MainLayout from "./layouts/MainLayout";
 import Employees from "./pages/employees/Employees";
+import Attendance from "./pages/attendance/Attendance";
+import Leaves from "./pages/leaves/Leaves";
+import Payroll from "./pages/payroll/Payroll";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -25,11 +28,13 @@ function App() {
     <BrowserRouter>
       <Routes>
 
+        {/* Login */}
         <Route
           path="/login"
           element={<Login />}
         />
 
+        {/* Protected Application */}
         <Route
           element={
             <ProtectedRoute>
@@ -37,17 +42,37 @@ function App() {
             </ProtectedRoute>
           }
         >
+
+          {/* Dashboard */}
           <Route
             path="/dashboard"
             element={<Dashboard />}
           />
 
+          {/* Employees */}
           <Route
             path="/employees"
             element={<Employees />}
           />
+
+          {/* Attendance */}
+          <Route
+            path="/attendance"
+            element={<Attendance />}
+          />
+
+          {/* Leaves */}
+          <Route
+            path="/leaves"
+            element={<Leaves />}
+          />
+          <Route
+            path="/payroll"
+            element={<Payroll />}
+          />
         </Route>
 
+        {/* Default */}
         <Route
           path="/"
           element={
@@ -58,6 +83,7 @@ function App() {
           }
         />
 
+        {/* Invalid Route */}
         <Route
           path="*"
           element={
