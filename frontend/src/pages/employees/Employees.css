@@ -638,3 +638,212 @@
     padding: 10px;
   }
 }
+
+
+/* =========================================
+   EMPLOYEE LOGIN CREDENTIALS MODAL
+========================================= */
+
+.credentials-modal {
+  width: 100%;
+  max-width: 500px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
+  animation: credentialsModalAnimation 0.25s ease-out;
+}
+
+.credentials-modal .modal-header {
+  padding: 24px 26px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.credentials-modal .modal-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.credentials-modal .modal-header p {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Modal content */
+
+.credentials-content {
+  padding: 24px 26px;
+}
+
+/* Success message */
+
+.credentials-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 13px 15px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.credentials-success span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Credential row */
+
+.credential-row {
+  margin-bottom: 18px;
+}
+
+.credential-row > label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Email / password value container */
+
+.credential-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  padding: 7px 8px 7px 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.credential-value span {
+  min-width: 0;
+  overflow-x: auto;
+  color: #111827;
+  font-family: "Courier New", monospace;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Copy button */
+
+.copy-credential-button {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-credential-button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.copy-credential-button:active {
+  transform: scale(0.96);
+}
+
+/* Warning box */
+
+.credentials-warning {
+  margin-top: 22px;
+  padding: 13px 15px;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Footer */
+
+.credentials-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 26px 24px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+/* Animation */
+
+@keyframes credentialsModalAnimation {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Mobile responsive */
+
+@media (max-width: 600px) {
+  .credentials-modal {
+    max-width: calc(100% - 24px);
+    border-radius: 14px;
+  }
+
+  .credentials-modal .modal-header {
+    padding: 20px;
+  }
+
+  .credentials-content {
+    padding: 20px;
+  }
+
+  .credentials-modal .modal-footer {
+    padding: 16px 20px 20px;
+  }
+
+  .credentials-modal .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .credential-value {
+    gap: 7px;
+  }
+
+  .credential-value span {
+    font-size: 12px;
+  }
+
+  .copy-credential-button {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}

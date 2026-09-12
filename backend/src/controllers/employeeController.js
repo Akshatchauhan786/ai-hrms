@@ -1,8 +1,19 @@
+const bcrypt = require("bcryptjs");
 const db = require("../config/database");
 
+/**
+ * Create Employee
+ *
+ * Auto-generated login:
+ * Email: username@demohrms.com
+ * Password: username@123
+ */
 const createEmployee = async (req, res) => {
+  let connection;
+
   try {
     const {
+      username,
       employee_code,
       first_name,
       last_name,
@@ -16,10 +27,11 @@ const createEmployee = async (req, res) => {
     } = req.body;
 
     // Basic validation
-    if (!employee_code || !first_name) {
+    if (!username || !employee_code || !first_name) {
       return res.status(400).json({
         success: false,
-        message: "Employee code and first name are required",
+        message:
+          "Username, employee code and first name are required",
       });
     }
 
@@ -33,74 +45,200 @@ const createEmployee = async (req, res) => {
       });
     }
 
-    // Check duplicate employee code inside same organization
-    const [existing] = await db.query(
-      `SELECT id
-       FROM employees
-       WHERE organization_id = ?
-       AND employee_code = ?
-       LIMIT 1`,
+    // Clean username
+    const cleanUsername = username
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ".");
+
+    if (!/^[a-z0-9._-]+$/.test(cleanUsername)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Username can contain only letters, numbers, dot, underscore and hyphen",
+      });
+    }
+
+    // Auto-generated login details
+    const email = `${cleanUsername}@demohrms.com`;
+    const defaultPassword = `${cleanUsername}@123`;
+
+    // Check duplicate employee code in same organization
+    const [existingEmployee] = await db.query(
+      `
+      SELECT id
+      FROM employees
+      WHERE organization_id = ?
+        AND employee_code = ?
+      LIMIT 1
+      `,
       [organization_id, employee_code]
     );
 
-    if (existing.length > 0) {
+    if (existingEmployee.length > 0) {
       return res.status(409).json({
         success: false,
         message: "Employee code already exists",
       });
     }
 
-    // Create employee
-    const [result] = await db.query(
-      `INSERT INTO employees (
-        organization_id,
-        employee_code,
-        first_name,
-        last_name,
-        phone,
-        date_of_birth,
-        department_id,
-        designation_id,
-        manager_id,
-        joining_date,
-        employment_type
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        organization_id,
-        employee_code,
-        first_name,
-        last_name || null,
-        phone || null,
-        date_of_birth || null,
-        department_id || null,
-        designation_id || null,
-        manager_id || null,
-        joining_date || null,
-        employment_type || "FULL_TIME",
-      ]
+    // Check duplicate login email
+    const [existingUser] = await db.query(
+      `
+      SELECT id
+      FROM users
+      WHERE email = ?
+      LIMIT 1
+      `,
+      [email]
     );
 
-    res.status(201).json({
-      success: true,
-      message: "Employee created successfully",
-      employee: {
-        id: result.insertId,
-        employee_code,
-        first_name,
-        last_name: last_name || null,
-      },
-    });
+    if (existingUser.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists. Try another username.",
+      });
+    }
+
+    connection = await db.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const firstName = first_name.trim();
+      const lastName = last_name ? last_name.trim() : null;
+
+      // Hash default password
+      const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+
+      // Create user login account
+      const [userResult] = await connection.query(
+        `
+        INSERT INTO users (
+          organization_id,
+          email,
+          password,
+          first_name,
+          last_name,
+          status
+        )
+        VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+        `,
+        [
+          organization_id,
+          email,
+          hashedPassword,
+          firstName,
+          lastName,
+        ]
+      );
+
+      const userId = userResult.insertId;
+
+      // Get EMPLOYEE role
+      const [roles] = await connection.query(
+        `
+        SELECT id
+        FROM roles
+        WHERE UPPER(name) = 'EMPLOYEE'
+        LIMIT 1
+        `
+      );
+
+      if (roles.length === 0) {
+        throw new Error("EMPLOYEE role not found");
+      }
+
+      // Assign EMPLOYEE role
+      await connection.query(
+        `
+        INSERT INTO user_roles (user_id, role_id)
+        VALUES (?, ?)
+        `,
+        [userId, roles[0].id]
+      );
+
+      // Create employee profile
+      const [employeeResult] = await connection.query(
+        `
+        INSERT INTO employees (
+          user_id,
+          organization_id,
+          employee_code,
+          first_name,
+          last_name,
+          phone,
+          date_of_birth,
+          department_id,
+          designation_id,
+          manager_id,
+          joining_date,
+          employment_type
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          userId,
+          organization_id,
+          employee_code,
+          firstName,
+          lastName,
+          phone || null,
+          date_of_birth || null,
+          department_id || null,
+          designation_id || null,
+          manager_id || null,
+          joining_date || null,
+          employment_type || "FULL_TIME",
+        ]
+      );
+
+      await connection.commit();
+
+      return res.status(201).json({
+        success: true,
+        message: "Employee and login account created successfully",
+
+        employee: {
+          id: employeeResult.insertId,
+          user_id: userId,
+          username: cleanUsername,
+          email,
+          employee_code,
+          first_name: firstName,
+          last_name: lastName,
+        },
+
+        // Admin can see these credentials after creation
+        loginDetails: {
+          username: cleanUsername,
+          email,
+          password: defaultPassword,
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error("Create employee error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to create employee",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : undefined,
     });
   }
 };
 
+/**
+ * Get Employees
+ */
 const getEmployees = async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
@@ -112,12 +250,15 @@ const getEmployees = async (req, res) => {
       });
     }
 
-    // Pagination
     const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit) || 20, 1),
+      100
+    );
+
     const offset = (page - 1) * limit;
 
-    // Filters
     const search = (req.query.search || "").trim();
     const status = req.query.status || "";
     const departmentId = req.query.department_id || "";
@@ -126,20 +267,26 @@ const getEmployees = async (req, res) => {
     const conditions = ["e.organization_id = ?"];
     const params = [organizationId];
 
-    // Search
+    // Search filter
     if (search) {
       conditions.push(`
         (
           e.employee_code LIKE ?
           OR e.first_name LIKE ?
           OR e.last_name LIKE ?
-          OR CONCAT(e.first_name, ' ', COALESCE(e.last_name, '')) LIKE ?
+          OR CONCAT(
+            e.first_name,
+            ' ',
+            COALESCE(e.last_name, '')
+          ) LIKE ?
+          OR u.email LIKE ?
         )
       `);
 
       const searchValue = `%${search}%`;
 
       params.push(
+        searchValue,
         searchValue,
         searchValue,
         searchValue,
@@ -167,11 +314,12 @@ const getEmployees = async (req, res) => {
 
     const whereClause = conditions.join(" AND ");
 
-    // Get total count
+    // Total count
     const [countResult] = await db.query(
       `
       SELECT COUNT(*) AS total
       FROM employees e
+      LEFT JOIN users u ON u.id = e.user_id
       WHERE ${whereClause}
       `,
       params
@@ -179,26 +327,40 @@ const getEmployees = async (req, res) => {
 
     const total = countResult[0].total;
 
-    // Get employees
+    // Employee list
     const [employees] = await db.query(
       `
       SELECT
         e.id,
+        e.user_id,
         e.employee_code,
         e.first_name,
         e.last_name,
         e.phone,
+        e.date_of_birth,
         e.joining_date,
         e.employment_type,
         e.status,
+
+        u.email,
 
         d.id AS department_id,
         d.name AS department_name,
 
         ds.id AS designation_id,
-        ds.name AS designation_name
+        ds.name AS designation_name,
+
+        m.id AS manager_id,
+        CONCAT(
+          m.first_name,
+          ' ',
+          COALESCE(m.last_name, '')
+        ) AS manager_name
 
       FROM employees e
+
+      LEFT JOIN users u
+        ON u.id = e.user_id
 
       LEFT JOIN departments d
         ON d.id = e.department_id
@@ -207,6 +369,10 @@ const getEmployees = async (req, res) => {
       LEFT JOIN designations ds
         ON ds.id = e.designation_id
         AND ds.organization_id = e.organization_id
+
+      LEFT JOIN employees m
+        ON m.id = e.manager_id
+        AND m.organization_id = e.organization_id
 
       WHERE ${whereClause}
 
@@ -219,7 +385,7 @@ const getEmployees = async (req, res) => {
 
     const totalPages = Math.ceil(total / limit);
 
-    res.json({
+    return res.json({
       success: true,
       data: employees,
       pagination: {
@@ -232,13 +398,16 @@ const getEmployees = async (req, res) => {
   } catch (error) {
     console.error("Get employees error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch employees",
     });
   }
 };
 
+/**
+ * Get Employee By ID
+ */
 const getEmployeeById = async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
@@ -262,6 +431,7 @@ const getEmployeeById = async (req, res) => {
       `
       SELECT
         e.id,
+        e.user_id,
         e.employee_code,
         e.first_name,
         e.last_name,
@@ -270,6 +440,8 @@ const getEmployeeById = async (req, res) => {
         e.joining_date,
         e.employment_type,
         e.status,
+
+        u.email,
 
         d.id AS department_id,
         d.name AS department_name,
@@ -285,6 +457,9 @@ const getEmployeeById = async (req, res) => {
         ) AS manager_name
 
       FROM employees e
+
+      LEFT JOIN users u
+        ON u.id = e.user_id
 
       LEFT JOIN departments d
         ON d.id = e.department_id
@@ -313,20 +488,23 @@ const getEmployeeById = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: employees[0],
     });
   } catch (error) {
     console.error("Get employee error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch employee",
     });
   }
 };
 
+/**
+ * Update Employee
+ */
 const updateEmployee = async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
@@ -367,7 +545,7 @@ const updateEmployee = async (req, res) => {
       });
     }
 
-    // Check employee belongs to this organization
+    // Check employee belongs to organization
     const [existing] = await db.query(
       `
       SELECT id
@@ -452,7 +630,7 @@ const updateEmployee = async (req, res) => {
       ]
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: "Employee updated successfully",
       affectedRows: result.affectedRows,
@@ -460,14 +638,19 @@ const updateEmployee = async (req, res) => {
   } catch (error) {
     console.error("Update employee error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to update employee",
     });
   }
 };
 
+/**
+ * Delete/Deactivate Employee
+ */
 const deleteEmployee = async (req, res) => {
+  let connection;
+
   try {
     const organizationId = req.user.organizationId;
     const employeeId = req.params.id;
@@ -486,32 +669,75 @@ const deleteEmployee = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `
-      UPDATE employees
-      SET status = 'INACTIVE'
-      WHERE id = ?
-        AND organization_id = ?
-        AND status != 'INACTIVE'
-      `,
-      [employeeId, organizationId]
-    );
+    connection = await db.getConnection();
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found or already inactive",
+    try {
+      await connection.beginTransaction();
+
+      // Get linked user
+      const [employees] = await connection.query(
+        `
+        SELECT user_id
+        FROM employees
+        WHERE id = ?
+          AND organization_id = ?
+        LIMIT 1
+        `,
+        [employeeId, organizationId]
+      );
+
+      if (employees.length === 0) {
+        await connection.rollback();
+
+        return res.status(404).json({
+          success: false,
+          message: "Employee not found",
+        });
+      }
+
+      const userId = employees[0].user_id;
+
+      // Deactivate employee profile
+      await connection.query(
+        `
+        UPDATE employees
+        SET status = 'INACTIVE'
+        WHERE id = ?
+          AND organization_id = ?
+        `,
+        [employeeId, organizationId]
+      );
+
+      // Deactivate linked login account
+      if (userId) {
+        await connection.query(
+          `
+          UPDATE users
+          SET status = 'INACTIVE'
+          WHERE id = ?
+            AND organization_id = ?
+          `,
+          [userId, organizationId]
+        );
+      }
+
+      await connection.commit();
+
+      return res.json({
+        success: true,
+        message:
+          "Employee and login account deactivated successfully",
       });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    res.json({
-      success: true,
-      message: "Employee deactivated successfully",
-    });
   } catch (error) {
     console.error("Delete employee error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to deactivate employee",
     });

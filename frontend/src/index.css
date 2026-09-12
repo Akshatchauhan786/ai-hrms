@@ -3206,3 +3206,161 @@ button {
     padding: 16px 20px;
   }
 }
+
+.dashboard-refresh-btn {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #111827;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-refresh-btn:hover {
+  opacity: 0.9;
+}
+
+.dashboard-loading {
+  padding: 50px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.dashboard-error {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.attendance-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.attendance-item {
+  padding: 18px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.attendance-item span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.attendance-item strong {
+  font-size: 24px;
+  color: #111827;
+}
+
+.leave-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.leave-summary > div {
+  padding: 18px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.leave-summary span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.leave-summary strong {
+  font-size: 24px;
+  color: #111827;
+}
+
+.recent-employees {
+  margin-top: 10px;
+}
+
+.recent-employee {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.recent-employee:last-child {
+  border-bottom: none;
+}
+
+.employee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 700;
+}
+
+.employee-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-info strong {
+  display: block;
+  font-size: 14px;
+  color: #111827;
+}
+
+.employee-info span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.employee-date {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.payroll-count {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #64748b;
+}
+
+@media (max-width: 768px) {
+  .attendance-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-date {
+    display: none;
+  }
+
+  .dashboard-refresh-btn {
+    padding: 8px 12px;
+  }
+}

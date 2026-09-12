@@ -130,6 +130,7 @@ function Payroll() {
         useState(false);
 
     const [search, setSearch] = useState("");
+    const [employeeFilter, setEmployeeFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [monthFilter, setMonthFilter] = useState("");
     const [yearFilter, setYearFilter] = useState("");
@@ -165,6 +166,8 @@ function Payroll() {
         type: "success",
     });
 
+    const [showPayslipModal, setShowPayslipModal] = useState(false);
+    const [selectedPayslip, setSelectedPayslip] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     // ----------------------------------
@@ -253,6 +256,42 @@ function Payroll() {
         }
     };
 
+
+
+    const openPayslipModal = async (payroll) => {
+        try {
+            setSubmitting(true);
+
+            const response = await fetch(
+                `${API_URL}/payroll/${payroll.id}`,
+                {
+                    headers: getHeaders(),
+                }
+            );
+
+            const data = await parseResponse(response);
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || "Failed to fetch payroll details"
+                );
+            }
+
+            setSelectedPayslip(data.data || data.payroll || payroll);
+            setShowPayslipModal(true);
+        } catch (error) {
+            console.error("Payslip preview error:", error);
+
+            showMessage(
+                error.message || "Failed to load payslip",
+                "Payslip Error",
+                "error"
+            );
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // ==================================
     // FETCH SALARY STRUCTURES
     // ==================================
@@ -319,6 +358,17 @@ function Payroll() {
                 );
             }
 
+            if (employeeFilter) {
+                params.append(
+                    "employee_id",
+                    employeeFilter
+                );
+            }
+
+            // Backend supports up to 100 records per request.
+            // This is especially useful for complete employee-wise history.
+            params.append("limit", "100");
+
             const query = params.toString();
 
             const url = `${API_URL}/payroll${query ? `?${query}` : ""
@@ -366,6 +416,7 @@ function Payroll() {
         monthFilter,
         yearFilter,
         statusFilter,
+        employeeFilter,
     ]);
 
     // ==================================
@@ -404,27 +455,37 @@ function Payroll() {
     // ==================================
 
     const stats = useMemo(() => {
-        const total = payrolls.length;
+        const visiblePayrolls = filteredPayrolls;
 
-        const processed = payrolls.filter(
-            (item) =>
-                item.status === "PROCESSED"
+        const total = visiblePayrolls.length;
+
+        const processed = visiblePayrolls.filter(
+            (item) => item.status === "PROCESSED"
         ).length;
 
-        const approved = payrolls.filter(
-            (item) =>
-                item.status === "APPROVED"
+        const approved = visiblePayrolls.filter(
+            (item) => item.status === "APPROVED"
         ).length;
 
-        const paid = payrolls.filter(
-            (item) =>
-                item.status === "PAID"
+        const paid = visiblePayrolls.filter(
+            (item) => item.status === "PAID"
         ).length;
 
-        const totalNet = payrolls.reduce(
+        const totalGross = visiblePayrolls.reduce(
             (sum, item) =>
-                sum +
-                Number(item.net_salary || 0),
+                sum + Number(item.gross_salary || 0),
+            0
+        );
+
+        const totalDeduction = visiblePayrolls.reduce(
+            (sum, item) =>
+                sum + Number(item.total_deduction || 0),
+            0
+        );
+
+        const totalNet = visiblePayrolls.reduce(
+            (sum, item) =>
+                sum + Number(item.net_salary || 0),
             0
         );
 
@@ -433,9 +494,11 @@ function Payroll() {
             processed,
             approved,
             paid,
+            totalGross,
+            totalDeduction,
             totalNet,
         };
-    }, [payrolls]);
+    }, [filteredPayrolls]);
 
     // ==================================
     // SALARY TOTALS
@@ -670,45 +733,49 @@ function Payroll() {
     // GENERATE PAYROLL
     // ==================================
 
-    const generatePayroll = async (e) => {
-        e.preventDefault();
-
-        if (
-            !generateForm.employee_id ||
-            !generateForm.month ||
-            !generateForm.year
-        ) {
-            showMessage(
-                "Employee, month and year are required",
-                "Validation Error",
-                "error"
-            );
-            return;
-        }
-
+    const generatePayroll = async () => {
         try {
-            setSubmitting(true);
+            if (!generateForm.employee_id) {
+                showMessage("Please select an employee.", "error");
+                return;
+            }
 
-            const response = await fetch(
-                `${API_URL}/payroll/generate`,
-                {
-                    method: "POST",
-                    headers: getHeaders(),
-                    body: JSON.stringify({
-                        employee_id: Number(
-                            generateForm.employee_id
-                        ),
-                        month: Number(
-                            generateForm.month
-                        ),
-                        year: Number(
-                            generateForm.year
-                        ),
-                    }),
-                }
+            if (!generateForm.month) {
+                showMessage("Please select payroll month.", "error");
+                return;
+            }
+
+            if (!generateForm.year) {
+                showMessage("Please enter payroll year.", "error");
+                return;
+            }
+
+            const payload = {
+                employee_id: Number(generateForm.employee_id),
+                payroll_month: Number(generateForm.month),
+                payroll_year: Number(generateForm.year),
+            };
+
+            console.log("GENERATE PAYROLL PAYLOAD:", payload);
+
+            const response = await fetch(`${API_URL}/payroll/generate`, {
+                method: "POST",
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+
+            const data = await parseResponse(response);
+
+            if (!response.ok) {
+                throw new Error(data.message || "Failed to generate payroll");
+            }
+
+            console.log("Payroll generated:", data);
+
+            showMessage(
+                data.message || "Payroll generated successfully!",
+                "success"
             );
-
-            const result = await parseResponse(response);
 
             setShowGenerateModal(false);
 
@@ -718,28 +785,14 @@ function Payroll() {
                 year: currentYear,
             });
 
-            await fetchPayrolls();
-
-            showMessage(
-                result.message ||
-                "Payroll generated successfully",
-                "Payroll Generated",
-                "success"
-            );
+            fetchPayrolls();
         } catch (error) {
-            console.error(
-                "Generate payroll error:",
-                error
-            );
+            console.error("Generate payroll error:", error);
 
             showMessage(
-                error.message ||
-                "Failed to generate payroll",
-                "Error",
+                error.message || "Failed to generate payroll",
                 "error"
             );
-        } finally {
-            setSubmitting(false);
         }
     };
 
@@ -949,12 +1002,20 @@ function Payroll() {
 
                 link.href = url;
 
+                const payrollMonth =
+                    payroll.payroll_month ||
+                    payroll.month ||
+                    "";
+
+                const payrollYear =
+                    payroll.payroll_year ||
+                    payroll.year ||
+                    "";
+
                 link.download =
                     `Payslip-${payroll.employee_code ||
                     payroll.id
-                    }-${payroll.month || ""
-                    }-${payroll.year || ""
-                    }.pdf`;
+                    }-${payrollMonth}-${payrollYear}.pdf`;
 
                 document.body.appendChild(
                     link
@@ -1059,7 +1120,19 @@ function Payroll() {
                         {stats.paid}
                     </strong>
                 </div>
+                <div className="payroll-stat-card">
+                    <span>Total Gross Salary</span>
+                    <strong>
+                        {formatCurrency(stats.totalGross)}
+                    </strong>
+                </div>
 
+                <div className="payroll-stat-card">
+                    <span>Total Deductions</span>
+                    <strong>
+                        {formatCurrency(stats.totalDeduction)}
+                    </strong>
+                </div>
                 <div className="payroll-stat-card">
                     <span>Total Net Salary</span>
                     <strong>
@@ -1122,6 +1195,30 @@ function Payroll() {
                                 }
                             />
                         </div>
+
+                        <select
+                            value={employeeFilter}
+                            onChange={(e) =>
+                                setEmployeeFilter(
+                                    e.target.value
+                                )
+                            }
+                        >
+                            <option value="">
+                                All Employees
+                            </option>
+
+                            {employees.map((employee) => (
+                                <option
+                                    key={employee.id}
+                                    value={employee.id}
+                                >
+                                    {employee.employee_code} -{" "}
+                                    {employee.first_name}{" "}
+                                    {employee.last_name}
+                                </option>
+                            ))}
+                        </select>
 
                         <select
                             value={monthFilter}
@@ -1190,6 +1287,7 @@ function Payroll() {
                             className="payroll-btn clear"
                             onClick={() => {
                                 setSearch("");
+                                setEmployeeFilter("");
                                 setMonthFilter("");
                                 setYearFilter("");
                                 setStatusFilter("");
@@ -1258,9 +1356,11 @@ function Payroll() {
 
                                                 <td>
                                                     {getMonthName(
+                                                        payroll.payroll_month ||
                                                         payroll.month
                                                     )}{" "}
-                                                    {payroll.year ||
+                                                    {payroll.payroll_year ||
+                                                        payroll.year ||
                                                         ""}
                                                 </td>
 
@@ -1343,24 +1443,19 @@ function Payroll() {
                                                                 </button>
                                                             )}
 
-                                                        <button
-                                                            className="action-btn payslip"
-                                                            onClick={() =>
-                                                                downloadPayslip(
-                                                                    payroll
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                submitting
-                                                            }
-                                                        >
-                                                            Payslip
-                                                        </button>
+                                                        {["APPROVED", "PAID"].includes(payroll.status) && (
+                                                            <button
+                                                                className="action-btn payslip"
+                                                                onClick={() => openPayslipModal(payroll)}
+                                                                disabled={submitting}
+                                                            >
+                                                                Payslip
+                                                            </button>
+                                                        )}
 
                                                     </div>
 
                                                 </td>
-
                                             </tr>
                                         )
                                     )
@@ -1551,24 +1646,17 @@ function Payroll() {
                                 <select
                                     value={generateForm.employee_id}
                                     onChange={(e) =>
-                                        setGenerateForm((prev) => ({
-                                            ...prev,
+                                        setGenerateForm({
+                                            ...generateForm,
                                             employee_id: e.target.value,
-                                        }))
+                                        })
                                     }
-                                    required
                                 >
-                                    <option value="">
-                                        Select Employee
-                                    </option>
+                                    <option value="">Select Employee</option>
 
                                     {employees.map((employee) => (
-                                        <option
-                                            key={employee.id}
-                                            value={employee.id}
-                                        >
-                                            {employee.employee_code} -{" "}
-                                            {employee.first_name}{" "}
+                                        <option key={employee.id} value={employee.id}>
+                                            {employee.employee_code} - {employee.first_name}{" "}
                                             {employee.last_name}
                                         </option>
                                     ))}
@@ -1580,34 +1668,21 @@ function Payroll() {
                                 </label>
 
                                 <select
-                                    value={
-                                        generateForm.month
-                                    }
+                                    value={generateForm.month}
                                     onChange={(e) =>
-                                        setGenerateForm(
-                                            (prev) => ({
-                                                ...prev,
-                                                month:
-                                                    e.target.value,
-                                            })
-                                        )
+                                        setGenerateForm({
+                                            ...generateForm,
+                                            month: e.target.value,
+                                        })
                                     }
                                 >
-                                    {Array.from(
-                                        { length: 12 },
-                                        (_, index) => (
-                                            <option
-                                                key={index + 1}
-                                                value={
-                                                    index + 1
-                                                }
-                                            >
-                                                {getMonthName(
-                                                    index + 1
-                                                )}
-                                            </option>
-                                        )
-                                    )}
+                                    {Array.from({ length: 12 }, (_, index) => (
+                                        <option key={index + 1} value={index + 1}>
+                                            {new Date(2000, index, 1).toLocaleString("en-US", {
+                                                month: "long",
+                                            })}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -1618,17 +1693,12 @@ function Payroll() {
 
                                 <input
                                     type="number"
-                                    value={
-                                        generateForm.year
-                                    }
+                                    value={generateForm.year}
                                     onChange={(e) =>
-                                        setGenerateForm(
-                                            (prev) => ({
-                                                ...prev,
-                                                year:
-                                                    e.target.value,
-                                            })
-                                        )
+                                        setGenerateForm({
+                                            ...generateForm,
+                                            year: e.target.value,
+                                        })
                                     }
                                 />
                             </div>
@@ -2080,9 +2150,11 @@ function Payroll() {
 
                                     <strong>
                                         {getMonthName(
+                                            selectedPayroll.payroll_month ||
                                             selectedPayroll.month
                                         )}{" "}
                                         {
+                                            selectedPayroll.payroll_year ||
                                             selectedPayroll.year ||
                                             ""
                                         }
@@ -2159,16 +2231,15 @@ function Payroll() {
                                     Close
                                 </button>
 
-                                <button
-                                    className="payroll-btn primary"
-                                    onClick={() =>
-                                        downloadPayslip(
-                                            selectedPayroll
-                                        )
-                                    }
-                                >
-                                    Download Payslip
-                                </button>
+                                {["APPROVED", "PAID"].includes(selectedPayroll.status) && (
+                                    <button
+                                        className="payroll-btn primary"
+                                        onClick={() => downloadPayslip(selectedPayroll)}
+                                        disabled={submitting}
+                                    >
+                                        {submitting ? "Generating..." : "Download Payslip"}
+                                    </button>
+                                )}
 
                             </div>
 
@@ -2176,6 +2247,321 @@ function Payroll() {
 
                     </div>
                 )}
+
+
+            {/* ==================================
+    PAYSLIP PREVIEW MODAL
+================================== */}
+
+            {showPayslipModal && selectedPayslip && (
+                <div
+                    className="payroll-modal-overlay"
+                    onClick={() => {
+                        if (!submitting) {
+                            setShowPayslipModal(false);
+                        }
+                    }}
+                >
+                    <div
+                        className="payroll-modal payslip-preview-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+
+                        {/* HEADER */}
+                        <div className="payroll-modal-header">
+                            <div>
+                                <h2>Payslip</h2>
+
+                                <p>
+                                    {getMonthName(
+                                        selectedPayslip.payroll_month ||
+                                        selectedPayslip.month
+                                    )}{" "}
+                                    {selectedPayslip.payroll_year ||
+                                        selectedPayslip.year}
+                                </p>
+                            </div>
+
+                            <button
+                                className="modal-close"
+                                onClick={() =>
+                                    !submitting &&
+                                    setShowPayslipModal(false)
+                                }
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* PAYSLIP */}
+                        <div className="payslip-preview">
+
+                            {/* COMPANY */}
+                            <div className="payslip-company">
+                                <h1>
+                                    {selectedPayslip.organization_name ||
+                                        "AI HRMS"}
+                                </h1>
+
+                                <h3>SALARY PAYSLIP</h3>
+
+                                <p>
+                                    {getMonthName(
+                                        selectedPayslip.payroll_month ||
+                                        selectedPayslip.month
+                                    )}{" "}
+                                    {selectedPayslip.payroll_year ||
+                                        selectedPayslip.year}
+                                </p>
+                            </div>
+
+                            {/* EMPLOYEE INFORMATION */}
+                            <div className="payslip-section">
+                                <h3>Employee Information</h3>
+
+                                <div className="payslip-info-grid">
+
+                                    <div>
+                                        <span>Employee Code</span>
+                                        <strong>
+                                            {selectedPayslip.employee_code || "-"}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Employee Name</span>
+                                        <strong>
+                                            {selectedPayslip.first_name || ""}{" "}
+                                            {selectedPayslip.last_name || ""}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Department</span>
+                                        <strong>
+                                            {selectedPayslip.department_name ||
+                                                "N/A"}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Designation</span>
+                                        <strong>
+                                            {selectedPayslip.designation_name ||
+                                                "N/A"}
+                                        </strong>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* ATTENDANCE */}
+                            <div className="payslip-section">
+                                <h3>Attendance</h3>
+
+                                <div className="payslip-attendance">
+
+                                    <div>
+                                        <span>Working Days</span>
+                                        <strong>
+                                            {selectedPayslip.working_days || 0}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Paid Days</span>
+                                        <strong>
+                                            {selectedPayslip.paid_days || 0}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Leave Days</span>
+                                        <strong>
+                                            {selectedPayslip.leave_days || 0}
+                                        </strong>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* EARNINGS + DEDUCTIONS */}
+                            <div className="payslip-two-column">
+
+                                {/* EARNINGS */}
+                                <div className="payslip-section">
+                                    <h3>Earnings</h3>
+
+                                    <div className="payslip-row">
+                                        <span>Basic Salary</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.basic_salary
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>HRA</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.hra
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>Transport Allowance</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.transport_allowance
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>Medical Allowance</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.medical_allowance
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>Other Allowance</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.other_allowance
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-total">
+                                        <span>Gross Salary</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.gross_salary
+                                            )}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                {/* DEDUCTIONS */}
+                                <div className="payslip-section">
+                                    <h3>Deductions</h3>
+
+                                    <div className="payslip-row">
+                                        <span>Provident Fund</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.provident_fund
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>Professional Tax</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.professional_tax
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-row">
+                                        <span>Other Deduction</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.other_deduction
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                    <div className="payslip-total">
+                                        <span>Total Deduction</span>
+                                        <strong>
+                                            {formatCurrency(
+                                                selectedPayslip.total_deduction
+                                            )}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* NET SALARY */}
+                            <div className="payslip-net">
+                                <span>NET SALARY</span>
+
+                                <strong>
+                                    {formatCurrency(
+                                        selectedPayslip.net_salary
+                                    )}
+                                </strong>
+                            </div>
+
+                            {/* STATUS */}
+                            <div className="payslip-footer-info">
+
+                                <div>
+                                    <span>Status</span>
+                                    <strong>
+                                        {selectedPayslip.status || "-"}
+                                    </strong>
+                                </div>
+
+                                {selectedPayslip.paid_at && (
+                                    <div>
+                                        <span>Paid Date</span>
+                                        <strong>
+                                            {formatDate(
+                                                selectedPayslip.paid_at
+                                            )}
+                                        </strong>
+                                    </div>
+                                )}
+
+                            </div>
+
+                            <p className="payslip-note">
+                                This is a system-generated payslip from AI HRMS.
+                            </p>
+
+                        </div>
+
+                        {/* ACTIONS */}
+                        <div className="modal-actions">
+
+                            <button
+                                type="button"
+                                className="payroll-btn secondary"
+                                onClick={() =>
+                                    setShowPayslipModal(false)
+                                }
+                                disabled={submitting}
+                            >
+                                Close
+                            </button>
+
+                            <button
+                                type="button"
+                                className="payroll-btn primary"
+                                onClick={() =>
+                                    downloadPayslip(selectedPayslip)
+                                }
+                                disabled={submitting}
+                            >
+                                {submitting
+                                    ? "Generating..."
+                                    : "Download PDF"}
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
 
             {/* ==================================
           CONFIRM MODAL

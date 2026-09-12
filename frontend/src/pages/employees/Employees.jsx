@@ -15,6 +15,8 @@ function Employees() {
     const [showModal, setShowModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [credentials, setCredentials] = useState(null);
 
     const [saving, setSaving] = useState(false);
     const [viewing, setViewing] = useState(false);
@@ -40,6 +42,7 @@ function Employees() {
     });
 
     const [formData, setFormData] = useState({
+        username: "",
         employee_code: "",
         first_name: "",
         last_name: "",
@@ -188,6 +191,7 @@ function Employees() {
 
     const resetForm = () => {
         setFormData({
+            username: "",
             employee_code: "",
             first_name: "",
             last_name: "",
@@ -239,6 +243,11 @@ function Employees() {
             setEditingEmployeeId(employee.id);
 
             setFormData({
+                username:
+                    data.username ||
+                    data.user?.username ||
+                    data.user_username ||
+                    "",
                 employee_code: data.employee_code || "",
                 first_name: data.first_name || "",
                 last_name: data.last_name || "",
@@ -302,6 +311,11 @@ function Employees() {
 
         setFormError("");
 
+        if (!editingEmployeeId && !formData.username.trim()) {
+            setFormError("Username is required");
+            return;
+        }
+
         if (!formData.employee_code.trim()) {
             setFormError("Employee code is required");
             return;
@@ -316,7 +330,7 @@ function Employees() {
             formData.manager_id &&
             editingEmployeeId &&
             Number(formData.manager_id) ===
-                Number(editingEmployeeId)
+            Number(editingEmployeeId)
         ) {
             setFormError(
                 "Employee cannot be their own manager"
@@ -328,6 +342,10 @@ function Employees() {
             setSaving(true);
 
             const payload = {
+                ...(editingEmployeeId
+                    ? {}
+                    : { username: formData.username.trim() }),
+
                 employee_code:
                     formData.employee_code.trim(),
 
@@ -362,16 +380,32 @@ function Employees() {
                     formData.status || "ACTIVE",
             };
 
+            let response;
+
             if (editingEmployeeId) {
-                await api.put(
+                response = await api.put(
                     `/employees/${editingEmployeeId}`,
                     payload
                 );
             } else {
-                await api.post(
+                response = await api.post(
                     "/employees",
                     payload
                 );
+
+                // Backend should return generated login credentials only once
+                // after creating a new employee.
+                const loginDetails =
+                    response?.data?.loginDetails ||
+                    response?.data?.login_details ||
+                    response?.data?.credentials ||
+                    response?.data?.data?.loginDetails ||
+                    null;
+
+                if (loginDetails) {
+                    setCredentials(loginDetails);
+                    setShowCredentialsModal(true);
+                }
             }
 
             setShowModal(false);
@@ -713,10 +747,9 @@ function Employees() {
                                                 <td>
 
                                                     <span
-                                                        className={`status-badge ${
-                                                            employee.status?.toLowerCase() ||
+                                                        className={`status-badge ${employee.status?.toLowerCase() ||
                                                             "active"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {employee.status ||
                                                             "ACTIVE"}
@@ -755,7 +788,7 @@ function Employees() {
 
 
                                                         {employee.status ===
-                                                        "INACTIVE" ? (
+                                                            "INACTIVE" ? (
                                                             <button
                                                                 className="action-button activate"
                                                                 onClick={() =>
@@ -909,6 +942,29 @@ function Employees() {
 
 
                             <div className="form-grid">
+
+                                {!editingEmployeeId && (
+                                    <div className="form-group">
+                                        <label>
+                                            Username *
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            name="username"
+                                            value={formData.username}
+                                            onChange={handleChange}
+                                            placeholder="e.g. akshat"
+                                            autoComplete="off"
+                                            required
+                                        />
+
+                                        <small className="form-help">
+                                            Login username. Email and default
+                                            password will be generated automatically.
+                                        </small>
+                                    </div>
+                                )}
 
                                 <div className="form-group">
                                     <label>
@@ -1133,9 +1189,9 @@ function Employees() {
                                                     Number(
                                                         employee.id
                                                     ) !==
-                                                        Number(
-                                                            editingEmployeeId
-                                                        )
+                                                    Number(
+                                                        editingEmployeeId
+                                                    )
                                             )
                                             .map(
                                                 (
@@ -1359,6 +1415,19 @@ function Employees() {
 
                                             <div>
                                                 <span>
+                                                    Username
+                                                </span>
+
+                                                <strong>
+                                                    {selectedEmployee.username ||
+                                                        selectedEmployee.user?.username ||
+                                                        selectedEmployee.user_username ||
+                                                        "-"}
+                                                </strong>
+                                            </div>
+
+                                            <div>
+                                                <span>
                                                     Phone
                                                 </span>
 
@@ -1380,9 +1449,9 @@ function Employees() {
                                                     {
                                                         selectedEmployee.date_of_birth
                                                             ? selectedEmployee.date_of_birth.substring(
-                                                                  0,
-                                                                  10
-                                                              )
+                                                                0,
+                                                                10
+                                                            )
                                                             : "-"
                                                     }
                                                 </strong>
@@ -1440,9 +1509,9 @@ function Employees() {
                                                     {
                                                         selectedEmployee.joining_date
                                                             ? selectedEmployee.joining_date.substring(
-                                                                  0,
-                                                                  10
-                                                              )
+                                                                0,
+                                                                10
+                                                            )
                                                             : "-"
                                                     }
                                                 </strong>
@@ -1601,6 +1670,89 @@ function Employees() {
 
                         </div>
 
+                    </div>
+                )}
+
+                {showCredentialsModal && credentials && (
+                    <div className="modal-overlay">
+                        <div className="employee-modal credentials-modal">
+                            <div className="modal-header">
+                                <div>
+                                    <h2>Employee Login Credentials</h2>
+                                    <p>Share these details securely with the employee.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="modal-close"
+                                    onClick={() => {
+                                        setShowCredentialsModal(false);
+                                        setCredentials(null);
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="credentials-content">
+                                <div className="credentials-success">
+                                    <span>✓</span>
+                                    Employee created successfully.
+                                </div>
+
+                                <div className="credential-row">
+                                    <label>Email</label>
+                                    <div className="credential-value">
+                                        <span>{credentials.email || credentials.username || "N/A"}</span>
+                                        <button
+                                            type="button"
+                                            className="copy-credential-button"
+                                            onClick={() =>
+                                                navigator.clipboard?.writeText(
+                                                    credentials.email || credentials.username || ""
+                                                )
+                                            }
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="credential-row">
+                                    <label>Password</label>
+                                    <div className="credential-value">
+                                        <span>{credentials.password || credentials.defaultPassword || "N/A"}</span>
+                                        <button
+                                            type="button"
+                                            className="copy-credential-button"
+                                            onClick={() =>
+                                                navigator.clipboard?.writeText(
+                                                    credentials.password || credentials.defaultPassword || ""
+                                                )
+                                            }
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="credentials-warning">
+                                    Please save these credentials now. The password may not be shown again.
+                                </div>
+                            </div>
+
+                            <div className="modal-footer">
+                                <button
+                                    type="button"
+                                    className="primary-button"
+                                    onClick={() => {
+                                        setShowCredentialsModal(false);
+                                        setCredentials(null);
+                                    }}
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
